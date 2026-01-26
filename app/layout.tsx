@@ -56,7 +56,7 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en" className="dark h-full">
-      <body className={`font-sans ${GeistSans.variable} ${GeistMono.variable} antialiased min-h-dvh bg-background`}>
+      <body className={`font-mono ${GeistSans.variable} ${GeistMono.variable} antialiased min-h-dvh bg-background`}>
         <Suspense fallback={<div>Loading...</div>}>
           <Providers>
             <div className="mx-auto w-full md:max-w-4xl lg:max-w-6xl xl:max-w-7xl">

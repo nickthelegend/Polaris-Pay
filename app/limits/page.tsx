@@ -3,14 +3,14 @@
 import { ConnectGate } from "@/components/connect-gate"
 import useSWR from "swr"
 import { Button } from "@/components/ui/button"
-import { 
-  User, 
-  Wallet, 
-  Award, 
-  TrendingUp, 
-  ShieldCheck, 
-  Lock, 
-  CheckCircle, 
+import {
+  User,
+  Wallet,
+  Award,
+  TrendingUp,
+  ShieldCheck,
+  Lock,
+  CheckCircle,
   ArrowRight,
   Shield,
   Zap
@@ -20,7 +20,7 @@ const fetcher = (u: string) => fetch(u).then((r) => r.json())
 
 export default function LimitsPage() {
   const { data } = useSWR("/api/limits", fetcher)
-  
+
   const score = data?.creditScore ?? 610
   const totalLimit = data?.currentLimit ?? 500
   const healthFactor = (score / 250).toFixed(2)
@@ -28,7 +28,7 @@ export default function LimitsPage() {
 
   return (
     <ConnectGate>
-      <div className="max-w-[800px] mx-auto py-12 px-4 flex flex-col gap-12 glow-bg min-h-screen font-sans">
+      <div className="max-w-[800px] mx-auto py-12 px-4 flex flex-col gap-12 glow-bg min-h-screen font-mono">
         <div className="flex flex-col gap-4 text-center">
           <h1 className="text-white text-4xl md:text-5xl font-extrabold leading-tight tracking-tight">
             Your Journey to Higher Limits
@@ -68,8 +68,8 @@ export default function LimitsPage() {
                     </span>
                   </div>
                   <div className="mt-4 w-full bg-white/5 h-2 rounded-full overflow-hidden">
-                    <div 
-                      className="bg-primary h-full rounded-full shadow-[0_0_10px_#a7f24a]" 
+                    <div
+                      className="bg-primary h-full rounded-full shadow-[0_0_10px_#a7f24a]"
                       style={{ width: `${healthPercentage}%` }}
                     ></div>
                   </div>
@@ -97,7 +97,7 @@ export default function LimitsPage() {
                   <button className="px-6 py-2 text-sm font-medium text-white/50 hover:text-white transition-all">Withdraw</button>
                 </div>
               </div>
-              
+
               <div className="bg-white/5 rounded-xl p-6 border border-white/5 mb-6">
                 <div className="flex justify-between text-[10px] font-bold text-white/40 mb-3 uppercase tracking-widest px-1">
                   <span>Amount to Deposit</span>
@@ -105,9 +105,9 @@ export default function LimitsPage() {
                 </div>
                 <div className="flex items-center gap-4">
                   <div className="flex-1">
-                    <input 
-                      className="w-full bg-transparent border-none p-0 text-white text-3xl font-black focus:ring-0 placeholder:text-white/10" 
-                      placeholder="0.00" 
+                    <input
+                      className="w-full bg-transparent border-none p-0 text-white text-3xl font-black focus:ring-0 placeholder:text-white/10"
+                      placeholder="0.00"
                       type="number"
                     />
                   </div>
@@ -128,7 +128,7 @@ export default function LimitsPage() {
                   <span className="text-white font-black text-lg">40.8%</span>
                 </div>
               </div>
-              
+
               <Button className="w-full py-8 bg-primary hover:bg-primary/90 text-primary-foreground font-black rounded-xl text-lg tracking-tight shadow-[0_0_30px_rgba(var(--primary),0.3)] transition-all">
                 DEPOSIT CTC & BOOST LIMIT
               </Button>
@@ -149,13 +149,13 @@ export default function LimitsPage() {
               <div className="mb-8">
                 <h2 className="text-white text-2xl font-bold">Unlock Your Next Level</h2>
                 <p className="text-foreground/50 text-sm mt-1">
-                  You are {Math.round((totalLimit/1500)*100)}% of the way to the <strong className="text-white">Silver Tier</strong>.
+                  You are {Math.round((totalLimit / 1500) * 100)}% of the way to the <strong className="text-white">Silver Tier</strong>.
                 </p>
               </div>
 
               <div className="relative mb-12 py-4 px-2">
                 <div className="h-4 bg-white/5 rounded-full w-full relative border border-white/5">
-                  <div className="absolute h-full bg-primary rounded-full transition-all duration-1000" style={{ width: `${Math.round((totalLimit/1500)*100)}%` }}>
+                  <div className="absolute h-full bg-primary rounded-full transition-all duration-1000" style={{ width: `${Math.round((totalLimit / 1500) * 100)}%` }}>
                     <div className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-1/2 size-8 bg-[#0a0b10] border-4 border-primary rounded-full flex items-center justify-center shadow-[0_0_15px_rgba(var(--primary),0.5)]">
                       <div className="size-2 bg-primary rounded-full animate-pulse"></div>
                     </div>
