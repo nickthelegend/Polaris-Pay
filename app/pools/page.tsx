@@ -21,7 +21,7 @@ import {
 export default function PoolsPage() {
     return (
         <ConnectGate>
-            <div className="flex-1 flex flex-col py-8 gap-6 max-w-[1600px] mx-auto w-full font-mono">
+            <div className="flex-1 flex flex-col py-8 gap-6 w-full font-mono">
                 {/* Page Header */}
                 <div className="flex flex-col gap-1">
                     <span className="font-mono text-[10px] tracking-[0.4em] text-primary/60 uppercase">System Status // core_protocol</span>

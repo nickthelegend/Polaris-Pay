@@ -4,7 +4,7 @@ import { Gavel, Download, HelpCircle, CheckCircle } from "lucide-react"
 
 export default function TermsPage() {
     return (
-        <div className="flex-1 flex flex-col py-8 gap-6 max-w-[1400px] mx-auto w-full font-mono">
+        <div className="flex-1 flex flex-col py-8 gap-6 w-full font-mono">
             <div className="flex flex-col gap-1">
                 <span className="font-mono text-[10px] tracking-[0.4em] text-primary/60 uppercase">System Legal / compliance_module</span>
                 <h1 className="text-white font-mono text-xl tracking-tighter font-bold uppercase">LEGAL_FRAMEWORK // TERMS_OF_SERVICE</h1>

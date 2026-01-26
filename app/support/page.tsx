@@ -19,7 +19,7 @@ import {
 export default function SupportPage() {
     return (
         <ConnectGate>
-            <div className="flex-1 flex flex-col py-8 gap-6 max-w-[1600px] mx-auto w-full font-mono">
+            <div className="flex-1 flex flex-col py-8 gap-6 w-full font-mono">
                 <div className="flex flex-col gap-1 mb-4">
                     <span className="font-mono text-[10px] tracking-[0.4em] text-primary/60 uppercase">Operational_Interface // v4.2.0</span>
                     <h1 className="text-white font-mono text-3xl md:text-4xl tracking-tighter font-bold uppercase">SYSTEM_SUPPORT // TECHNICAL_ASSISTANCE</h1>

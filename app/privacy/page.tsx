@@ -4,7 +4,7 @@ import { Shield, FileText, Trash2 } from "lucide-react"
 
 export default function PrivacyPage() {
     return (
-        <div className="flex-1 flex flex-col py-8 gap-6 max-w-[1400px] mx-auto w-full font-mono">
+        <div className="flex-1 flex flex-col py-8 gap-6 w-full font-mono">
             <div className="flex flex-col gap-1 mb-2">
                 <span className="font-mono text-[10px] tracking-[0.4em] text-primary/60 uppercase">System_Governance // Legal_Layer</span>
                 <h1 className="text-white font-mono text-2xl tracking-tighter font-bold uppercase">DATA_PROTECTION // PRIVACY_PROTOCOL</h1>
