@@ -18,7 +18,7 @@ export function LandingPage() {
                             <path d="M 500, 500 m -400, 0 a 400,400 0 1,1 800,0 a 400,400 0 1,1 -800,0" fill="transparent" id="circlePath"></path>
                             <text className="text-ring">
                                 <textPath xlinkHref="#circlePath">
-                                    YOUR_CTC_IS_NOW_YOUR_CREDIT_CARD • YOUR_CTC_IS_NOW_YOUR_CREDIT_CARD •
+                                    YOUR CTC IS NOW YOUR CREDIT CARD • YOUR CTC IS NOW YOUR CREDIT CARD •
                                 </textPath>
                             </text>
                         </svg>
@@ -46,7 +46,7 @@ export function LandingPage() {
                             <p className="text-[10px] font-mono tracking-[0.4em] text-primary uppercase">Protocol_Heartbeat_v1.0</p>
                         </div>
                         <h1 className="text-6xl md:text-8xl font-black tracking-tighter mb-4 italic uppercase font-display">
-                            POLARIS_PROTOCOL
+                            POLARIS PROTOCOL
                         </h1>
                         <p className="text-slate-200 font-mono text-lg tracking-widest uppercase max-w-3xl mx-auto mb-4">
                             Which provides BNPL and makes your CTC work for you.
@@ -75,10 +75,10 @@ export function LandingPage() {
                             onClick={() => login()}
                             className="bg-primary text-black px-12 py-5 rounded-xl font-bold text-xl hover:brightness-110 transition-all neon-glow min-w-[280px] font-mono uppercase tracking-tighter"
                         >
-                            LAUNCH_TERMINAL
+                            LAUNCH TERMINAL
                         </button>
                         <button className="bg-[#121a2a]/80 border border-slate-700 text-white px-12 py-5 rounded-xl font-bold text-xl hover:bg-[#121a2a] transition-all min-w-[280px] backdrop-blur-md font-mono uppercase tracking-tighter">
-                            VIEW_ECOSYSTEM
+                            VIEW ECOSYSTEM
                         </button>
                     </div>
                 </div>
@@ -98,7 +98,7 @@ export function LandingPage() {
                                     +12.5%
                                 </div>
                             </div>
-                            <p className="text-2xl md:text-3xl text-primary font-bold uppercase tracking-[0.3em] mt-8 font-mono italic">TOTAL_CREDIT_ISSUED</p>
+                            <p className="text-2xl md:text-3xl text-primary font-bold uppercase tracking-[0.3em] mt-8 font-mono italic">TOTAL CREDIT ISSUED</p>
                         </div>
 
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-16 border-t border-white/10 pt-16 font-mono">
@@ -123,13 +123,13 @@ export function LandingPage() {
                 <div className="marquee-container">
                     <div className="marquee-content flex gap-20 items-center">
                         <div className="flex gap-8 items-center">
-                            <span className="text-primary font-mono text-base font-bold tracking-[0.3em] uppercase">POLARIS_NETWORK_STATUS:</span>
+                            <span className="text-primary font-mono text-base font-bold tracking-[0.3em] uppercase">POLARIS NETWORK STATUS:</span>
                             <span className="text-white/60 font-mono text-sm uppercase tracking-tighter whitespace-nowrap">STAKED_ETH: 4,200.54</span>
                             <span className="text-white/60 font-mono text-sm uppercase tracking-tighter whitespace-nowrap">STAKED_SOL: 85,120.33</span>
                             <span className="text-white/60 font-mono text-sm uppercase tracking-tighter whitespace-nowrap">TOTAL_CREDIT_ISSUED: $2,450,192.00</span>
                             <span className="text-white/60 font-mono text-sm uppercase tracking-tighter whitespace-nowrap">ACTIVE_STAKERS: 12,402</span>
                             <span className="text-white/60 font-mono text-sm uppercase tracking-tighter whitespace-nowrap">CORE_SYNC_HEALTH: 100%</span>
-                            <span className="text-primary font-mono text-base font-bold tracking-[0.3em] uppercase ml-20">POLARIS_NETWORK_STATUS:</span>
+                            <span className="text-primary font-mono text-base font-bold tracking-[0.3em] uppercase ml-20">POLARIS NETWORK STATUS:</span>
                             <span className="text-white/60 font-mono text-sm uppercase tracking-tighter whitespace-nowrap">STAKED_ETH: 4,200.54</span>
                         </div>
                     </div>
