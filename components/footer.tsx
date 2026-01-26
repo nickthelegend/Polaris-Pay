@@ -2,8 +2,14 @@
 
 import { Shield } from "lucide-react"
 import Link from "next/link"
+import { usePathname } from "next/navigation"
+import { usePrivy } from "@privy-io/react-auth"
 
 export function AppFooter() {
+    const pathname = usePathname()
+    const { authenticated } = usePrivy()
+
+    if (pathname === "/" && !authenticated) return null
     return (
         <footer className="w-full flex flex-col md:flex-row justify-between items-center py-6 px-6 md:px-12 border-t border-white/5 gap-6 opacity-40 font-mono">
             <div className="flex items-center gap-8">

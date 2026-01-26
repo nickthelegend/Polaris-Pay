@@ -11,7 +11,6 @@ import {
   Gauge,
   FileText,
   History,
-  Settings,
   LogOut,
   User
 } from "lucide-react"
@@ -24,7 +23,6 @@ const NAV_ITEMS = [
   { href: "/limits", label: "LIMITS", icon: Gauge },
   { href: "/docs", label: "DOCS", icon: FileText },
   { href: "/transactions", label: "TRANSACTIONS", icon: History },
-  { href: "/settings", label: "SETTINGS", icon: Settings },
 ]
 
 export function SidebarDrawer({ open, onOpenChange }: { open?: boolean; onOpenChange?: (v: boolean) => void }) {

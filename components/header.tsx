@@ -16,7 +16,6 @@ const NAV = [
   { href: "/limits", label: "Limits" },
   { href: "/docs", label: "Docs" },
   { href: "/transactions", label: "Transactions" },
-  { href: "/settings", label: "Settings" },
 ]
 
 export function AppHeader() {

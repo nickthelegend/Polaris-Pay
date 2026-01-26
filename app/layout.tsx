@@ -20,8 +20,8 @@ export const metadata: Metadata = {
   robots: "index, follow",
   viewport: "width=device-width, initial-scale=1",
   icons: {
-    icon: "/logo.png",
-    apple: "/logo.png",
+    icon: "/logo-image.png",
+    apple: "/logo-image.png",
   },
   openGraph: {
     type: "website",
