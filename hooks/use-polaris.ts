@@ -131,6 +131,25 @@ export function usePolaris() {
         }
     };
 
+    const getInsuranceStats = async () => {
+        try {
+            const pool = await getContract(CONTRACTS.MASTER.INSURANCE_POOL, ABIS.InsurancePool, NETWORKS.USC.id, false);
+            const total = await pool.totalStaked();
+            let user = "0";
+            if (wallet?.address) {
+                const balance = await pool.stakedCTC(wallet.address);
+                user = formatUnits(balance, 18);
+            }
+            return {
+                total: formatUnits(total, 18),
+                user: user
+            };
+        } catch (error) {
+            console.error("Fetch insurance stats failed:", error);
+            return { total: "0", user: "0" };
+        }
+    };
+
     return {
         loading,
         txHash,
@@ -140,6 +159,7 @@ export function usePolaris() {
         getTokenBalance,
         getLPBalance,
         getLocalVaultStats,
+        getInsuranceStats,
         authenticated,
         address: wallet?.address,
         chainId: wallet?.chainId

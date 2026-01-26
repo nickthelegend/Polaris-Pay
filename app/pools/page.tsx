@@ -39,13 +39,15 @@ import {
 } from "@/components/ui/dialog"
 
 export default function PoolsPage() {
-    const { depositLiquidity, getPoolLiquidity, getTokenBalance, getLPBalance, getLocalVaultStats, loading, authenticated, chainId } = usePolaris();
+    const { depositLiquidity, getPoolLiquidity, getTokenBalance, getLPBalance, getLocalVaultStats, getInsuranceStats, loading, authenticated, chainId } = usePolaris();
     const [usdcLiquidity, setUsdcLiquidity] = useState("0");
     const [usdtLiquidity, setUsdtLiquidity] = useState("0");
+    const [ctcLiquidity, setCtcLiquidity] = useState("0");
     const [usdcUserBalance, setUsdcUserBalance] = useState("0");
     const [usdtUserBalance, setUsdtUserBalance] = useState("0");
     const [usdcLPBalance, setUsdcLPBalance] = useState("0");
     const [usdtLPBalance, setUsdtLPBalance] = useState("0");
+    const [ctcLPBalance, setCtcLPBalance] = useState("0");
     const [selectedNetwork, setSelectedNetwork] = useState<"USC" | "LOCAL">("USC");
 
     // Modal state
@@ -61,28 +63,55 @@ export default function PoolsPage() {
 
     const refreshData = async () => {
         try {
-            // 1. Fetch Master Hub stats (Always needed for global context)
+            console.log(`[POLARIS] Refreshing data for network: ${selectedNetwork}...`);
+
+            // 1. Fetch Master Hub stats
             const hubUsdcLiq = await getPoolLiquidity(CONTRACTS.SOURCE.USDC);
             const hubUsdtLiq = await getPoolLiquidity(CONTRACTS.SOURCE.USDT);
             const hubUsdcLP = await getLPBalance(CONTRACTS.SOURCE.USDC);
             const hubUsdtLP = await getLPBalance(CONTRACTS.SOURCE.USDT);
 
+            // Insurance Pool (Always from USC)
+            const ctcStats = await getInsuranceStats();
+            setCtcLiquidity(ctcStats.total);
+            setCtcLPBalance(ctcStats.user);
+
             // 2. Fetch Local Vault stats
             const vaultUsdc = await getLocalVaultStats(CONTRACTS.SOURCE.USDC);
             const vaultUsdt = await getLocalVaultStats(CONTRACTS.SOURCE.USDT);
 
+            let currentUsdcDepth = "0";
+            let currentUsdtDepth = "0";
+            let currentUserUsdc = "0";
+            let currentUserUsdt = "0";
+
             // 3. Update display state based on selected network context
             if (selectedNetwork === "LOCAL") {
-                setUsdcLiquidity(vaultUsdc.total);
-                setUsdtLiquidity(vaultUsdt.total);
-                setUsdcLPBalance(vaultUsdc.user);
-                setUsdtLPBalance(vaultUsdt.user);
+                currentUsdcDepth = vaultUsdc.total;
+                currentUsdtDepth = vaultUsdt.total;
+                currentUserUsdc = vaultUsdc.user;
+                currentUserUsdt = vaultUsdt.user;
             } else {
-                setUsdcLiquidity(hubUsdcLiq);
-                setUsdtLiquidity(hubUsdtLiq);
-                setUsdcLPBalance(hubUsdcLP);
-                setUsdtLPBalance(hubUsdtLP);
+                currentUsdcDepth = hubUsdcLiq;
+                currentUsdtDepth = hubUsdtLiq;
+                currentUserUsdc = hubUsdcLP;
+                currentUserUsdt = hubUsdtLP;
             }
+
+            setUsdcLiquidity(currentUsdcDepth);
+            setUsdtLiquidity(currentUsdtDepth);
+            setUsdcLPBalance(currentUserUsdc);
+            setUsdtLPBalance(currentUserUsdt);
+
+            // Validation Logs
+            const totalTVL = Number(currentUsdcDepth) + Number(currentUsdtDepth) + Number(ctcStats.total);
+            console.log("\n--- [TVL_VALIDATION_REPORT] ---");
+            console.log(`[USDC_DEPTH]: $${currentUsdcDepth}`);
+            console.log(`[USDT_DEPTH]: $${currentUsdtDepth}`);
+            console.log(`[CTC_STAKED]: $${ctcStats.total}`);
+            console.log(`[TOTAL_POSITION_VALUE]: $${Number(currentUserUsdc) + Number(currentUserUsdt) + Number(ctcStats.user)}`);
+            console.log(`[PROTOCOL_TVL]: $${totalTVL}`);
+            console.log("-------------------------------\n");
 
             // Wallet balances from selected network
             const net = NETWORKS[selectedNetwork];
@@ -145,7 +174,7 @@ export default function PoolsPage() {
                         <div className="p-6 flex flex-col gap-1">
                             <span className="text-[10px] text-white/40 tracking-wider uppercase">Total_Value_Locked (TVL)</span>
                             <div className="flex items-baseline gap-2 text-white">
-                                <span className="text-white text-3xl font-bold tracking-tighter">${(Number(usdcLiquidity) + Number(usdtLiquidity)).toLocaleString()}</span>
+                                <span className="text-white text-3xl font-bold tracking-tighter">${(Number(usdcLiquidity) + Number(usdtLiquidity) + Number(ctcLiquidity)).toLocaleString()}</span>
                                 <span className="text-primary text-xs font-bold">+0.0%</span>
                             </div>
                         </div>
@@ -159,7 +188,7 @@ export default function PoolsPage() {
                         <div className="p-6 flex flex-col gap-1">
                             <span className="text-[10px] text-white/40 tracking-wider uppercase">Your_Position_Value</span>
                             <div className="flex items-baseline gap-2">
-                                <span className="text-white text-3xl font-bold tracking-tighter">${(Number(usdcLPBalance) + Number(usdtLPBalance)).toLocaleString()}</span>
+                                <span className="text-white text-3xl font-bold tracking-tighter">${(Number(usdcLPBalance) + Number(usdtLPBalance) + Number(ctcLPBalance)).toLocaleString()}</span>
                                 <span className="text-white/40 text-[10px] uppercase">Net_Equity</span>
                             </div>
                         </div>
@@ -320,10 +349,10 @@ export default function PoolsPage() {
                                         <span className="text-primary font-bold text-sm">18.20%</span>
                                     </div>
                                     <div className="col-span-2 text-right">
-                                        <span className="text-white/70 text-xs font-medium">$850K</span>
+                                        <span className="text-white/70 text-xs font-medium">${Number(ctcLiquidity).toLocaleString()}</span>
                                     </div>
                                     <div className="col-span-2 text-right">
-                                        <span className="text-white text-xs">450.00 <span className="text-[10px] text-white/40">CTC</span></span>
+                                        <span className="text-white text-xs">{Number(ctcLPBalance).toLocaleString()} <span className="text-[10px] text-white/40">CTC</span></span>
                                     </div>
                                     <div className="col-span-2 flex justify-end gap-2">
                                         <button className="bg-primary/90 hover:bg-primary text-primary-foreground px-2.5 py-1 rounded-sm font-black text-[9px] uppercase shadow-lg shadow-primary/5 transition-all">Stake</button>
