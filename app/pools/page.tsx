@@ -18,10 +18,78 @@ import {
     Info
 } from "lucide-react"
 
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+
+import { usePolaris } from "@/hooks/use-polaris"
+import { CONTRACTS, NETWORKS } from "@/lib/contracts"
+import { useState, useEffect } from "react"
+import { toast } from "react-toastify"
+
 export default function PoolsPage() {
+    const { depositLiquidity, getPoolLiquidity, getTokenBalance, loading, authenticated, chainId } = usePolaris();
+    const [usdcLiquidity, setUsdcLiquidity] = useState("0");
+    const [usdtLiquidity, setUsdtLiquidity] = useState("0");
+    const [usdcUserBalance, setUsdcUserBalance] = useState("0");
+    const [usdtUserBalance, setUsdtUserBalance] = useState("0");
+    const [selectedNetwork, setSelectedNetwork] = useState<"USC" | "LOCAL">("USC");
+
+    useEffect(() => {
+        if (authenticated) {
+            refreshData();
+        }
+    }, [authenticated, selectedNetwork]);
+
+    const refreshData = async () => {
+        try {
+            // Global liquidity is always from USC Master chain
+            const usdcLiq = await getPoolLiquidity(CONTRACTS.SOURCE.USDC);
+            const usdtLiq = await getPoolLiquidity(CONTRACTS.SOURCE.USDT);
+            setUsdcLiquidity(usdcLiq);
+            setUsdtLiquidity(usdtLiq);
+
+            // User balance from selected network
+            const net = NETWORKS[selectedNetwork];
+            const ubUsdc = await getTokenBalance(CONTRACTS.SOURCE.USDC, net.id);
+            const ubUsdt = await getTokenBalance(CONTRACTS.SOURCE.USDT, net.id);
+            setUsdcUserBalance(ubUsdc);
+            setUsdtUserBalance(ubUsdt);
+        } catch (err) {
+            console.error("Refresh failed:", err);
+        }
+    };
+
+    const handleNetworkChange = (net: "USC" | "LOCAL") => {
+        setSelectedNetwork(net);
+        toast.info(`View updated to ${NETWORKS[net].name}`);
+    };
+
+    const handleDeposit = async (token: string, symbol: string) => {
+        if (selectedNetwork !== "LOCAL") {
+            toast.warn("Switch to LOCALNET to deposit tokens");
+            return;
+        }
+        try {
+            const amount = prompt(`Enter ${symbol} amount to deposit:`, "100");
+            if (!amount) return;
+
+            toast.info(`Initiating ${amount} ${symbol} deposit...`);
+            await depositLiquidity(token, amount);
+            toast.success("Deposit successful! Liquidity locked.");
+            refreshData();
+        } catch (error) {
+            console.error("Deposit error:", error);
+            toast.error("Deposit failed. Check console for details.");
+        }
+    };
+
     return (
         <ConnectGate>
-            <div className="flex-1 flex flex-col py-8 gap-6 w-full font-mono">
+            <div className="flex-1 flex flex-col py-8 gap-6 w-full font-mono text-white">
                 {/* Page Header */}
                 <div className="flex flex-col gap-1">
                     <span className="font-mono text-[10px] tracking-[0.4em] text-primary/60 uppercase">System Status // core_protocol</span>
@@ -30,19 +98,19 @@ export default function PoolsPage() {
 
                 {/* Analytics Section */}
                 <section className="glass-card rounded-lg border border-white/10 overflow-hidden shadow-2xl">
-                    <div className="bg-white/5 px-4 py-2 border-b border-white/10 flex justify-between items-center">
+                    <div className="bg-white/5 px-4 py-2 border-b border-white/10 flex justify-between items-center text-white">
                         <span className="text-[10px] text-white/40 uppercase tracking-widest">Consolidated_Summary // global_analytics</span>
                         <span className="text-primary text-[10px] animate-pulse flex items-center gap-1.5">
                             <span className="w-1.5 h-1.5 bg-primary rounded-full" />
                             SIGNAL_STABLE
                         </span>
                     </div>
-                    <div className="grid grid-cols-1 md:grid-cols-4 divide-y md:divide-y-0 md:divide-x divide-white/10">
+                    <div className="grid grid-cols-1 md:grid-cols-4 divide-y md:divide-y-0 md:divide-x divide-white/10 text-white">
                         <div className="p-6 flex flex-col gap-1">
                             <span className="text-[10px] text-white/40 tracking-wider uppercase">Total_Value_Locked (TVL)</span>
-                            <div className="flex items-baseline gap-2">
-                                <span className="text-white text-3xl font-bold tracking-tighter">$12,400,000.00</span>
-                                <span className="text-primary text-xs font-bold">+2.4%</span>
+                            <div className="flex items-baseline gap-2 text-white">
+                                <span className="text-white text-3xl font-bold tracking-tighter">${(Number(usdcLiquidity) + Number(usdtLiquidity)).toLocaleString()}</span>
+                                <span className="text-primary text-xs font-bold">+0.0%</span>
                             </div>
                         </div>
                         <div className="p-6 flex flex-col gap-1">
@@ -78,15 +146,31 @@ export default function PoolsPage() {
                                 <h2 className="text-white text-xs font-bold uppercase tracking-widest">Liquidity_Pools_Terminal</h2>
                             </div>
                             <div className="flex items-center gap-2">
-                                <div className="relative">
-                                    <button className="flex items-center gap-2 bg-white/5 border border-white/10 px-3 py-1 rounded-sm hover:bg-white/10 transition-all cursor-pointer">
-                                        <span className="w-1.5 h-1.5 bg-primary rounded-full neon-glow" />
-                                        <span className="text-[10px] text-white/70 tracking-widest uppercase">NETWORK: CREDITCOIN</span>
-                                        <ChevronDown className="w-3 h-3 text-white/40" />
-                                    </button>
-                                </div>
-                                <button className="flex items-center gap-2 bg-white/5 border border-white/10 px-3 py-1 rounded-sm hover:bg-white/10 transition-all text-[10px] text-white/70 uppercase tracking-widest group">
-                                    <RefreshCw className="w-3 h-3 text-primary group-hover:rotate-180 transition-transform duration-500" />
+                                <DropdownMenu>
+                                    <DropdownMenuTrigger asChild>
+                                        <button className="flex items-center gap-2 bg-white/5 border border-white/10 px-3 py-1.5 rounded-sm hover:bg-white/10 transition-all cursor-pointer">
+                                            <span className="w-1.5 h-1.5 bg-primary rounded-full neon-glow" />
+                                            <span className="text-[10px] text-white/70 tracking-widest uppercase">
+                                                {selectedNetwork === "USC" ? "NETWORK: USC HUB" : "NETWORK: LOCALNET"}
+                                            </span>
+                                            <ChevronDown className="w-3 h-3 text-white/40" />
+                                        </button>
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent align="end" className="bg-zinc-900 border-white/10">
+                                        <DropdownMenuItem onClick={() => handleNetworkChange("USC")} className="text-[10px] uppercase font-bold tracking-tighter cursor-pointer focus:bg-primary/20">
+                                            USC Master Hub
+                                        </DropdownMenuItem>
+                                        <DropdownMenuItem onClick={() => handleNetworkChange("LOCAL")} className="text-[10px] uppercase font-bold tracking-tighter cursor-pointer focus:bg-primary/20">
+                                            Localnet Hub (Source)
+                                        </DropdownMenuItem>
+                                    </DropdownMenuContent>
+                                </DropdownMenu>
+
+                                <button
+                                    onClick={refreshData}
+                                    className="flex items-center gap-2 bg-white/5 border border-white/10 px-3 py-1.5 rounded-sm hover:bg-white/10 transition-all text-[10px] text-white/70 uppercase tracking-widest group"
+                                >
+                                    <RefreshCw className={`w-3 h-3 text-primary group-hover:rotate-180 transition-transform duration-500 ${loading ? "animate-spin" : ""}`} />
                                     REFRESH
                                 </button>
                                 <div className="bg-white/5 border border-white/10 px-3 py-1 rounded flex items-center gap-2">
@@ -136,13 +220,19 @@ export default function PoolsPage() {
                                         <span className="text-primary font-bold text-sm">12.40%</span>
                                     </div>
                                     <div className="col-span-2 text-right">
-                                        <span className="text-white/70 text-xs font-medium">$4.2M</span>
+                                        <span className="text-white/70 text-xs font-medium">${Number(usdcLiquidity).toLocaleString()}</span>
                                     </div>
                                     <div className="col-span-2 text-right">
-                                        <span className="text-white text-xs">1,200.00 <span className="text-[10px] text-white/40">USDC</span></span>
+                                        <span className="text-white text-xs">{Number(usdcUserBalance).toLocaleString()} <span className="text-[10px] text-white/40">USDC</span></span>
                                     </div>
                                     <div className="col-span-2 flex justify-end gap-2">
-                                        <button className="bg-primary/90 hover:bg-primary text-primary-foreground px-2.5 py-1 rounded-sm font-black text-[9px] uppercase shadow-lg shadow-primary/5 transition-all">Deposit</button>
+                                        <button
+                                            onClick={() => handleDeposit(CONTRACTS.SOURCE.USDC, "USDC")}
+                                            className="bg-primary/90 hover:bg-primary text-primary-foreground px-2.5 py-1 rounded-sm font-black text-[9px] uppercase shadow-lg shadow-primary/5 transition-all disabled:opacity-50"
+                                            disabled={loading}
+                                        >
+                                            {loading ? "..." : "Deposit"}
+                                        </button>
                                         <button className="border border-white/10 text-white/60 hover:text-white hover:bg-white/5 px-2.5 py-1 rounded-sm font-bold text-[9px] uppercase transition-all">Withdraw</button>
                                     </div>
                                 </div>
@@ -162,13 +252,19 @@ export default function PoolsPage() {
                                         <span className="text-primary font-bold text-sm">11.80%</span>
                                     </div>
                                     <div className="col-span-2 text-right">
-                                        <span className="text-white/70 text-xs font-medium">$3.9M</span>
+                                        <span className="text-white/70 text-xs font-medium">${Number(usdtLiquidity).toLocaleString()}</span>
                                     </div>
                                     <div className="col-span-2 text-right">
-                                        <span className="text-white/30 text-xs">0.00 <span className="text-[10px] text-white/20">USDT</span></span>
+                                        <span className="text-white text-xs">{Number(usdtUserBalance).toLocaleString()} <span className="text-[10px] text-white/20">USDT</span></span>
                                     </div>
                                     <div className="col-span-2 flex justify-end gap-2">
-                                        <button className="bg-primary/90 hover:bg-primary text-primary-foreground px-2.5 py-1 rounded-sm font-black text-[9px] uppercase shadow-lg shadow-primary/5 transition-all">Deposit</button>
+                                        <button
+                                            onClick={() => handleDeposit(CONTRACTS.SOURCE.USDT, "USDT")}
+                                            className="bg-primary/90 hover:bg-primary text-primary-foreground px-2.5 py-1 rounded-sm font-black text-[9px] uppercase shadow-lg shadow-primary/5 transition-all disabled:opacity-50"
+                                            disabled={loading}
+                                        >
+                                            {loading ? "..." : "Deposit"}
+                                        </button>
                                         <button className="border border-white/10 text-white/60 hover:text-white hover:bg-white/5 px-2.5 py-1 rounded-sm font-bold text-[9px] uppercase transition-all">Withdraw</button>
                                     </div>
                                 </div>

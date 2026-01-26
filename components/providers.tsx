@@ -11,12 +11,54 @@ export function Providers({ children }: { children: React.ReactNode }) {
       appId={process.env.NEXT_PUBLIC_PRIVY_APP_ID || "cmkr3rc4i00iujs0cgnug0qzj"}
       config={{
         appearance: {
-          theme: "light",
+          theme: "dark",
           accentColor: "#676FFF",
         },
         embeddedWallets: {
-          createOnLogin: "users-without-wallets",
+          ethereum: {
+            createOnLogin: "users-without-wallets",
+          }
         },
+        defaultChain: {
+          id: 102033,
+          name: "Creditcoin USC Testnet",
+          network: "usc-testnet",
+          nativeCurrency: {
+            name: "tCTC",
+            symbol: "tCTC",
+            decimals: 18,
+          },
+          rpcUrls: {
+            default: {
+              http: ["https://rpc.usc-testnet.creditcoin.network"],
+            },
+            public: {
+              http: ["https://rpc.usc-testnet.creditcoin.network"],
+            },
+          },
+        },
+        supportedChains: [
+          {
+            id: 102033,
+            name: "Creditcoin USC Testnet",
+            network: "usc-testnet",
+            nativeCurrency: { name: "tCTC", symbol: "tCTC", decimals: 18 },
+            rpcUrls: {
+              default: { http: ["https://rpc.usc-testnet.creditcoin.network"] },
+              public: { http: ["https://rpc.usc-testnet.creditcoin.network"] },
+            },
+          },
+          {
+            id: 1337,
+            name: "Localnet",
+            network: "localnet",
+            nativeCurrency: { name: "ETH", symbol: "ETH", decimals: 18 },
+            rpcUrls: {
+              default: { http: ["http://127.0.0.1:7545"] },
+              public: { http: ["http://127.0.0.1:7545"] },
+            },
+          }
+        ]
       }}
     >
       {children}
