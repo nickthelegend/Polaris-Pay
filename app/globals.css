@@ -40,19 +40,25 @@
 }
 
 .dark {
-  --background: oklch(0.13 0.02 260); /* near-black */
-  --foreground: oklch(0.98 0.01 260); /* near-white */
+  --background: oklch(0.13 0.02 260);
+  /* near-black */
+  --foreground: oklch(0.98 0.01 260);
+  /* near-white */
   --card: oklch(0.16 0.02 260);
   --card-foreground: oklch(0.98 0.01 260);
   --popover: oklch(0.16 0.02 260);
   --popover-foreground: oklch(0.98 0.01 260);
-  --primary: oklch(0.88 0.2 128); /* neon-lime */
-  --primary-foreground: oklch(0.18 0.02 260); /* dark text on lime */
-  --secondary: oklch(0.22 0.02 260); /* deeper surface */
+  --primary: oklch(0.88 0.2 128);
+  /* neon-lime */
+  --primary-foreground: oklch(0.18 0.02 260);
+  /* dark text on lime */
+  --secondary: oklch(0.22 0.02 260);
+  /* deeper surface */
   --secondary-foreground: oklch(0.98 0.01 260);
   --muted: oklch(0.22 0.02 260);
   --muted-foreground: oklch(0.72 0.01 260);
-  --accent: oklch(0.72 0.08 210); /* cool accent if needed */
+  --accent: oklch(0.72 0.08 210);
+  /* cool accent if needed */
   --accent-foreground: oklch(0.13 0.02 260);
   --border: oklch(0.28 0.02 260);
   --input: oklch(0.28 0.02 260);
@@ -68,8 +74,8 @@
 }
 
 @theme inline {
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-display: "Space Grotesk", sans-serif;
+  --font-mono: "JetBrains Mono", monospace;
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
@@ -112,6 +118,7 @@
   * {
     @apply border-border outline-ring/50;
   }
+
   body {
     @apply bg-background text-foreground;
   }
@@ -121,6 +128,7 @@
 .no-scrollbar::-webkit-scrollbar {
   display: none;
 }
+
 .no-scrollbar {
   -ms-overflow-style: none;
   scrollbar-width: none;
@@ -174,7 +182,7 @@
   height: 100%;
   pointer-events: none;
   background: linear-gradient(rgba(166, 242, 74, 0.02) 1px, transparent 1px),
-              linear-gradient(90deg, rgba(166, 242, 74, 0.02) 1px, transparent 1px);
+    linear-gradient(90deg, rgba(166, 242, 74, 0.02) 1px, transparent 1px);
   background-size: 100px 100px;
   z-index: -1;
 }
@@ -190,4 +198,29 @@
 
 .neon-glow {
   box-shadow: 0 0 15px rgba(166, 242, 74, 0.15);
+  text-shadow: 0 0 8px rgba(167, 242, 74, 0.6);
+}
+
+.glass-sidebar {
+  background: rgba(26, 34, 17, 0.4);
+  backdrop-filter: blur(12px);
+  border-right: 1px solid rgba(167, 242, 74, 0.1);
+}
+
+.terminal-block {
+  background: #0d1117;
+  border: 1px solid rgba(167, 242, 74, 0.2);
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+  width: 4px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(167, 242, 74, 0.2);
+  border-radius: 10px;
 }
