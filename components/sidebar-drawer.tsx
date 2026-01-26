@@ -8,6 +8,7 @@ import {
   MenuIcon,
   LayoutDashboard,
   PiggyBank,
+  ShoppingBag,
   Gauge,
   FileText,
   History,
@@ -20,6 +21,7 @@ import { cn } from "@/lib/utils"
 const NAV_ITEMS = [
   { href: "/", label: "DASHBOARD", icon: LayoutDashboard },
   { href: "/pools", label: "PIGGY BANK", icon: PiggyBank },
+  { href: "/merchants", label: "SHOP", icon: ShoppingBag },
   { href: "/limits", label: "LIMITS", icon: Gauge },
   { href: "/docs", label: "DOCS", icon: FileText },
   { href: "/transactions", label: "TRANSACTIONS", icon: History },
