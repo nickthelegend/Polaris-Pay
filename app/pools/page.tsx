@@ -30,13 +30,28 @@ import { CONTRACTS, NETWORKS } from "@/lib/contracts"
 import { useState, useEffect } from "react"
 import { toast } from "react-toastify"
 
+import {
+    Dialog,
+    DialogContent,
+    DialogHeader,
+    DialogTitle,
+    DialogDescription,
+} from "@/components/ui/dialog"
+
 export default function PoolsPage() {
-    const { depositLiquidity, getPoolLiquidity, getTokenBalance, loading, authenticated, chainId } = usePolaris();
+    const { depositLiquidity, getPoolLiquidity, getTokenBalance, getLPBalance, getLocalVaultStats, loading, authenticated, chainId } = usePolaris();
     const [usdcLiquidity, setUsdcLiquidity] = useState("0");
     const [usdtLiquidity, setUsdtLiquidity] = useState("0");
     const [usdcUserBalance, setUsdcUserBalance] = useState("0");
     const [usdtUserBalance, setUsdtUserBalance] = useState("0");
+    const [usdcLPBalance, setUsdcLPBalance] = useState("0");
+    const [usdtLPBalance, setUsdtLPBalance] = useState("0");
     const [selectedNetwork, setSelectedNetwork] = useState<"USC" | "LOCAL">("USC");
+
+    // Modal state
+    const [isDepositOpen, setIsDepositOpen] = useState(false);
+    const [depositTarget, setDepositTarget] = useState<{ token: string, symbol: string } | null>(null);
+    const [depositAmount, setDepositAmount] = useState("100");
 
     useEffect(() => {
         if (authenticated) {
@@ -46,13 +61,30 @@ export default function PoolsPage() {
 
     const refreshData = async () => {
         try {
-            // Global liquidity is always from USC Master chain
-            const usdcLiq = await getPoolLiquidity(CONTRACTS.SOURCE.USDC);
-            const usdtLiq = await getPoolLiquidity(CONTRACTS.SOURCE.USDT);
-            setUsdcLiquidity(usdcLiq);
-            setUsdtLiquidity(usdtLiq);
+            // 1. Fetch Master Hub stats (Always needed for global context)
+            const hubUsdcLiq = await getPoolLiquidity(CONTRACTS.SOURCE.USDC);
+            const hubUsdtLiq = await getPoolLiquidity(CONTRACTS.SOURCE.USDT);
+            const hubUsdcLP = await getLPBalance(CONTRACTS.SOURCE.USDC);
+            const hubUsdtLP = await getLPBalance(CONTRACTS.SOURCE.USDT);
 
-            // User balance from selected network
+            // 2. Fetch Local Vault stats
+            const vaultUsdc = await getLocalVaultStats(CONTRACTS.SOURCE.USDC);
+            const vaultUsdt = await getLocalVaultStats(CONTRACTS.SOURCE.USDT);
+
+            // 3. Update display state based on selected network context
+            if (selectedNetwork === "LOCAL") {
+                setUsdcLiquidity(vaultUsdc.total);
+                setUsdtLiquidity(vaultUsdt.total);
+                setUsdcLPBalance(vaultUsdc.user);
+                setUsdtLPBalance(vaultUsdt.user);
+            } else {
+                setUsdcLiquidity(hubUsdcLiq);
+                setUsdtLiquidity(hubUsdtLiq);
+                setUsdcLPBalance(hubUsdcLP);
+                setUsdtLPBalance(hubUsdtLP);
+            }
+
+            // Wallet balances from selected network
             const net = NETWORKS[selectedNetwork];
             const ubUsdc = await getTokenBalance(CONTRACTS.SOURCE.USDC, net.id);
             const ubUsdt = await getTokenBalance(CONTRACTS.SOURCE.USDT, net.id);
@@ -68,18 +100,22 @@ export default function PoolsPage() {
         toast.info(`View updated to ${NETWORKS[net].name}`);
     };
 
-    const handleDeposit = async (token: string, symbol: string) => {
+    const openDepositModal = (token: string, symbol: string) => {
         if (selectedNetwork !== "LOCAL") {
             toast.warn("Switch to LOCALNET to deposit tokens");
             return;
         }
-        try {
-            const amount = prompt(`Enter ${symbol} amount to deposit:`, "100");
-            if (!amount) return;
+        setDepositTarget({ token, symbol });
+        setIsDepositOpen(true);
+    };
 
-            toast.info(`Initiating ${amount} ${symbol} deposit...`);
-            await depositLiquidity(token, amount);
+    const executeDeposit = async () => {
+        if (!depositTarget) return;
+        try {
+            toast.info(`Initiating ${depositAmount} ${depositTarget.symbol} deposit...`);
+            await depositLiquidity(depositTarget.token, depositAmount);
             toast.success("Deposit successful! Liquidity locked.");
+            setIsDepositOpen(false);
             refreshData();
         } catch (error) {
             console.error("Deposit error:", error);
@@ -123,7 +159,7 @@ export default function PoolsPage() {
                         <div className="p-6 flex flex-col gap-1">
                             <span className="text-[10px] text-white/40 tracking-wider uppercase">Your_Position_Value</span>
                             <div className="flex items-baseline gap-2">
-                                <span className="text-white text-3xl font-bold tracking-tighter">$2,500.00</span>
+                                <span className="text-white text-3xl font-bold tracking-tighter">${(Number(usdcLPBalance) + Number(usdtLPBalance)).toLocaleString()}</span>
                                 <span className="text-white/40 text-[10px] uppercase">Net_Equity</span>
                             </div>
                         </div>
@@ -223,11 +259,11 @@ export default function PoolsPage() {
                                         <span className="text-white/70 text-xs font-medium">${Number(usdcLiquidity).toLocaleString()}</span>
                                     </div>
                                     <div className="col-span-2 text-right">
-                                        <span className="text-white text-xs">{Number(usdcUserBalance).toLocaleString()} <span className="text-[10px] text-white/40">USDC</span></span>
+                                        <span className="text-white text-xs">{Number(usdcLPBalance).toLocaleString()} <span className="text-[10px] text-white/40">USDC</span></span>
                                     </div>
                                     <div className="col-span-2 flex justify-end gap-2">
                                         <button
-                                            onClick={() => handleDeposit(CONTRACTS.SOURCE.USDC, "USDC")}
+                                            onClick={() => openDepositModal(CONTRACTS.SOURCE.USDC, "USDC")}
                                             className="bg-primary/90 hover:bg-primary text-primary-foreground px-2.5 py-1 rounded-sm font-black text-[9px] uppercase shadow-lg shadow-primary/5 transition-all disabled:opacity-50"
                                             disabled={loading}
                                         >
@@ -255,11 +291,11 @@ export default function PoolsPage() {
                                         <span className="text-white/70 text-xs font-medium">${Number(usdtLiquidity).toLocaleString()}</span>
                                     </div>
                                     <div className="col-span-2 text-right">
-                                        <span className="text-white text-xs">{Number(usdtUserBalance).toLocaleString()} <span className="text-[10px] text-white/20">USDT</span></span>
+                                        <span className="text-white text-xs">{Number(usdtLPBalance).toLocaleString()} <span className="text-[10px] text-white/20">USDT</span></span>
                                     </div>
                                     <div className="col-span-2 flex justify-end gap-2">
                                         <button
-                                            onClick={() => handleDeposit(CONTRACTS.SOURCE.USDT, "USDT")}
+                                            onClick={() => openDepositModal(CONTRACTS.SOURCE.USDT, "USDT")}
                                             className="bg-primary/90 hover:bg-primary text-primary-foreground px-2.5 py-1 rounded-sm font-black text-[9px] uppercase shadow-lg shadow-primary/5 transition-all disabled:opacity-50"
                                             disabled={loading}
                                         >
@@ -324,6 +360,66 @@ export default function PoolsPage() {
                     </section>
                 </div>
             </div>
+
+            <Dialog open={isDepositOpen} onOpenChange={setIsDepositOpen}>
+                <DialogContent className="bg-zinc-950 border border-white/10 text-white font-mono rounded-lg shadow-2xl overflow-hidden p-0 gap-0">
+                    <div className="bg-white/5 px-4 py-2 border-b border-white/10 flex justify-between items-center">
+                        <span className="text-[10px] text-white/40 uppercase tracking-widest">Protocol_Input // liquidity_provision</span>
+                        <span className="text-primary text-[10px] animate-pulse">AWAITING_QUANTITY</span>
+                    </div>
+
+                    <div className="p-6 flex flex-col gap-6">
+                        <div className="flex flex-col gap-2">
+                            <h2 className="text-xl font-bold uppercase tracking-tighter">Enter Deposit Amount</h2>
+                            <p className="text-[10px] text-white/40 uppercase leading-relaxed">
+                                Provide liquidity to the {depositTarget?.symbol} pool on LOCALNET.
+                                Funds will be locked in the source vault.
+                            </p>
+                        </div>
+
+                        <div className="relative group">
+                            <div className="absolute inset-y-0 left-3 flex items-center pointer-events-none">
+                                <Wallet className="w-4 h-4 text-primary opacity-50" />
+                            </div>
+                            <input
+                                type="number"
+                                value={depositAmount}
+                                onChange={(e) => setDepositAmount(e.target.value)}
+                                className="w-full bg-white/5 border border-white/10 rounded-sm py-3 pl-10 pr-4 text-white font-bold text-lg focus:outline-none focus:ring-1 focus:ring-primary focus:border-transparent transition-all placeholder:text-white/10"
+                                placeholder="0.00"
+                            />
+                            <div className="absolute inset-y-0 right-3 flex items-center pointer-events-none">
+                                <span className="text-[10px] font-bold text-white/40">{depositTarget?.symbol}</span>
+                            </div>
+                        </div>
+
+                        <div className="flex flex-col gap-3">
+                            <button
+                                onClick={executeDeposit}
+                                disabled={loading}
+                                className="w-full bg-primary hover:bg-primary/80 text-primary-foreground py-3 rounded-sm font-black text-xs uppercase tracking-widest shadow-lg shadow-primary/20 transition-all disabled:opacity-50 active:scale-95"
+                            >
+                                {loading ? "TRANSACTING..." : "Confirm_Deposit"}
+                            </button>
+                            <button
+                                onClick={() => setIsDepositOpen(false)}
+                                className="w-full bg-transparent hover:bg-white/5 text-white/40 hover:text-white/60 py-2 rounded-sm font-bold text-[10px] uppercase tracking-widest transition-all"
+                            >
+                                Cancel_Request
+                            </button>
+                        </div>
+                    </div>
+
+                    <div className="bg-white/5 px-4 py-1.5 border-t border-white/10 flex justify-between items-center">
+                        <span className="text-[9px] text-white/20 uppercase">Network: LOCALNET</span>
+                        <div className="flex gap-2">
+                            <div className="w-1 h-1 rounded-full bg-primary/20" />
+                            <div className="w-1 h-1 rounded-full bg-primary/20" />
+                            <div className="w-1 h-1 rounded-full bg-primary/20" />
+                        </div>
+                    </div>
+                </DialogContent>
+            </Dialog>
         </ConnectGate>
     )
 }

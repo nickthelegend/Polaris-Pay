@@ -17,19 +17,14 @@ export function usePolaris() {
 
         if (useSigner) {
             if (!wallet) throw new Error("Wallet not connected");
-
-            // Reformat chainId check to match Privy's "eip155:ID" format
             const currentChainId = parseInt(wallet.chainId.split(':')[1]);
             if (currentChainId !== networkId) {
-                console.log(`Switching network from ${currentChainId} to ${networkId}`);
                 await wallet.switchChain(networkId);
             }
-
             const provider = new BrowserProvider(await wallet.getEthereumProvider());
             const signer = await provider.getSigner();
             return new Contract(address, abi, signer);
         } else {
-            // Use static RPC for view calls to avoid wallet popups/errors
             const provider = new JsonRpcProvider(net.rpc);
             return new Contract(address, abi, provider);
         }
@@ -76,13 +71,7 @@ export function usePolaris() {
 
     const getPoolLiquidity = async (tokenAddress: string) => {
         try {
-            // Always read from USC Master Chain for global liquidity
-            const poolManager = await getContract(
-                CONTRACTS.MASTER.POOL_MANAGER,
-                ABIS.PoolManager,
-                NETWORKS.USC.id,
-                false // View only
-            );
+            const poolManager = await getContract(CONTRACTS.MASTER.POOL_MANAGER, ABIS.PoolManager, NETWORKS.USC.id, false);
             const liquidity = await poolManager.getPoolLiquidity(tokenAddress);
             return formatUnits(liquidity, 18);
         } catch (error) {
@@ -103,6 +92,45 @@ export function usePolaris() {
         }
     };
 
+    const getLPBalance = async (tokenAddress: string) => {
+        try {
+            if (!wallet?.address) return "0";
+            const poolManager = await getContract(CONTRACTS.MASTER.POOL_MANAGER, ABIS.PoolManager, NETWORKS.USC.id, false);
+            const balance = await poolManager.lpBalance(wallet.address, tokenAddress);
+            return formatUnits(balance, 18);
+        } catch (error) {
+            console.error("Fetch LP balance failed:", error);
+            return "0";
+        }
+    };
+
+    const getLocalVaultStats = async (tokenAddress: string) => {
+        try {
+            const vault = await getContract(CONTRACTS.SOURCE.LIQUIDITY_VAULT, ABIS.LiquidityVault, NETWORKS.LOCAL.id, false);
+            const filter = vault.filters.LiquidityDeposited(null, tokenAddress);
+            const events = await vault.queryFilter(filter);
+
+            let totalLiquidity = BigInt(0);
+            let userLiquidity = BigInt(0);
+
+            events.forEach((event: any) => {
+                const { lender, amount } = event.args;
+                totalLiquidity += amount;
+                if (wallet?.address && lender.toLowerCase() === wallet.address.toLowerCase()) {
+                    userLiquidity += amount;
+                }
+            });
+
+            return {
+                total: formatUnits(totalLiquidity, 18),
+                user: formatUnits(userLiquidity, 18)
+            };
+        } catch (error) {
+            console.error("Fetch local vault stats failed:", error);
+            return { total: "0", user: "0" };
+        }
+    };
+
     return {
         loading,
         txHash,
@@ -110,6 +138,8 @@ export function usePolaris() {
         addLiquidityFromProof,
         getPoolLiquidity,
         getTokenBalance,
+        getLPBalance,
+        getLocalVaultStats,
         authenticated,
         address: wallet?.address,
         chainId: wallet?.chainId
