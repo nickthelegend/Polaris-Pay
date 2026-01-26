@@ -17,9 +17,9 @@ export function AppFooter() {
                 </div>
             </div>
             <div className="flex gap-6">
-                <Link href="#" className="hover:text-primary transition-colors text-[10px] font-bold uppercase tracking-widest">Support</Link>
-                <Link href="#" className="hover:text-primary transition-colors text-[10px] font-bold uppercase tracking-widest">Terms</Link>
-                <Link href="#" className="hover:text-primary transition-colors text-[10px] font-bold uppercase tracking-widest">Privacy</Link>
+                <Link href="/support" className="hover:text-primary transition-colors text-[10px] font-bold uppercase tracking-widest">Support</Link>
+                <Link href="/terms" className="hover:text-primary transition-colors text-[10px] font-bold uppercase tracking-widest">Terms</Link>
+                <Link href="/privacy" className="hover:text-primary transition-colors text-[10px] font-bold uppercase tracking-widest">Privacy</Link>
             </div>
         </footer>
     )
