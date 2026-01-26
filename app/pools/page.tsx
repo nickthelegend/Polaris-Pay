@@ -69,9 +69,9 @@ export default function PoolsPage() {
                     </div>
                 </section>
 
-                <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                <div className="flex flex-col gap-6">
                     {/* Main Terminal Section */}
-                    <section className="lg:col-span-8 flex flex-col gap-4">
+                    <section className="flex flex-col gap-4">
                         <div className="flex items-center justify-between flex-wrap gap-4">
                             <div className="flex items-center gap-2">
                                 <LayoutDashboard className="w-4 h-4 text-primary" />
@@ -100,7 +100,7 @@ export default function PoolsPage() {
                             </div>
                         </div>
 
-                        <div className="glass-card rounded-lg border border-white/10 overflow-hidden flex flex-col flex-1 min-h-[500px]">
+                        <div className="glass-card rounded-lg border border-white/10 overflow-hidden flex flex-col flex-1 min-h-[600px]">
                             <div className="grid grid-cols-12 bg-white/5 border-b border-white/10 px-4 py-3 sticky top-0 z-10 backdrop-blur-sm">
                                 <div className="col-span-4 flex items-center gap-1 cursor-pointer group">
                                     <span className="text-[10px] text-white/40 uppercase tracking-widest group-hover:text-primary transition-colors">Asset_Identifier</span>
@@ -120,7 +120,7 @@ export default function PoolsPage() {
                                 </div>
                             </div>
 
-                            <div className="overflow-y-auto max-h-[600px] scrollbar-hide">
+                            <div className="overflow-y-auto max-h-[800px] scrollbar-hide">
                                 {/* Pool Row: USDC */}
                                 <div className="grid grid-cols-12 px-4 py-4 border-b border-white/5 hover:bg-white/[0.04] transition-all items-center group">
                                     <div className="col-span-4 flex items-center gap-3">
@@ -223,86 +223,6 @@ export default function PoolsPage() {
                                         <button className="bg-primary/20 text-primary px-2.5 py-1 rounded-sm font-black text-[9px] uppercase cursor-not-allowed">Offline</button>
                                     </div>
                                 </div>
-                            </div>
-                        </div>
-                    </section>
-
-                    {/* Sidebar Section */}
-                    <section className="lg:col-span-4 flex flex-col gap-6">
-                        {/* Insights Module */}
-                        <div className="glass-card bg-primary/5 border border-primary/20 rounded-lg p-5 relative overflow-hidden group">
-                            <div className="scanline opacity-20" />
-                            <div className="flex items-center justify-between mb-3">
-                                <h3 className="text-white font-bold text-xs flex items-center gap-2 uppercase tracking-widest">
-                                    <span className="w-1 h-1 bg-primary rounded-full animate-pulse shadow-[0_0_8px_rgba(166,242,74,0.8)]" />
-                                    Insights_Module
-                                </h3>
-                            </div>
-                            <p className="text-white/70 text-xs leading-relaxed">
-                                <strong className="text-primary uppercase tracking-tighter">Automatic Repayments:</strong> Your bills are settled automatically using your stablecoin balance to protect your health factor. Stay liquid with Polaris protocol automation.
-                            </p>
-                        </div>
-
-                        {/* Wallet Diagnostics */}
-                        <div className="flex flex-col gap-4">
-                            <h2 className="text-white text-[10px] font-bold uppercase tracking-[0.3em] pl-1">Wallet_Diagnostics</h2>
-                            <div className="grid grid-cols-2 gap-3">
-                                <div className="glass-card border border-white/5 p-4 rounded-lg flex flex-col gap-1 hover:border-white/10 transition-all cursor-pointer">
-                                    <span className="text-[9px] text-white/40 tracking-wider uppercase font-bold">Monthly_Spend</span>
-                                    <span className="text-white text-lg font-bold tabular-nums">$37,242</span>
-                                </div>
-                                <div className="glass-card border border-white/5 p-4 rounded-lg flex flex-col gap-1 hover:border-white/10 transition-all cursor-pointer">
-                                    <span className="text-[9px] text-white/40 tracking-wider uppercase font-bold">Upcoming_Bills</span>
-                                    <span className="text-white text-lg font-bold tabular-nums">$24,491</span>
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* Recent Logs (Activity) */}
-                        <div className="flex flex-col gap-4">
-                            <div className="flex items-center justify-between px-1">
-                                <h2 className="text-white text-[10px] font-bold uppercase tracking-[0.3em]">Recent_Logs</h2>
-                                <button className="text-primary text-[9px] font-bold hover:underline transition-all">[ VIEW_ALL ]</button>
-                            </div>
-                            <div className="flex flex-col gap-2">
-                                <div className="glass-card rounded-lg p-3 flex items-center justify-between hover:bg-white/[0.06] transition-all border-l border-white/10 cursor-pointer">
-                                    <div className="flex items-center gap-3">
-                                        <Database className="w-4 h-4 text-white/30" />
-                                        <div className="flex flex-col">
-                                            <span className="text-white text-[11px] font-semibold">Groceries</span>
-                                            <span className="text-white/30 text-[9px]">OCT_24_14:20</span>
-                                        </div>
-                                    </div>
-                                    <span className="text-white font-bold text-xs font-mono">24.00 <span className="text-[9px] text-white/40 uppercase">USDC</span></span>
-                                </div>
-                                <div className="glass-card rounded-lg p-3 flex items-center justify-between hover:bg-white/[0.06] transition-all border-l border-white/10 cursor-pointer">
-                                    <div className="flex items-center gap-3">
-                                        <RefreshCw className="w-4 h-4 text-white/30" />
-                                        <div className="flex flex-col">
-                                            <span className="text-white text-[11px] font-semibold font-display">Subscription</span>
-                                            <span className="text-white/30 text-[9px]">OCT_22_09:12</span>
-                                        </div>
-                                    </div>
-                                    <span className="text-white font-bold text-xs font-mono">12.99 <span className="text-[9px] text-white/40 uppercase">USDC</span></span>
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* Queue Alerts */}
-                        <div className="flex flex-col gap-4">
-                            <div className="flex items-center justify-between px-1">
-                                <h2 className="text-white text-[10px] font-bold uppercase tracking-[0.3em]">Queue_Alerts</h2>
-                                <span className="bg-primary/10 text-primary text-[8px] font-black px-2 py-0.5 rounded-sm uppercase border border-primary/20">Critical</span>
-                            </div>
-                            <div className="glass-card rounded-lg p-3 flex items-center justify-between border-l-2 border-l-primary bg-primary/[0.02] hover:bg-primary/[0.04] transition-all cursor-pointer">
-                                <div className="flex items-center gap-3">
-                                    <Zap className="w-4 h-4 text-primary" />
-                                    <div>
-                                        <span className="text-white font-bold text-[11px] block leading-none">Streaming Hub</span>
-                                        <span className="text-primary text-[9px] font-bold font-mono">T-MINUS 3 DAYS</span>
-                                    </div>
-                                </div>
-                                <span className="text-white font-bold text-xs tabular-nums">9.99 <span className="text-[9px] text-white/40 uppercase">USDC</span></span>
                             </div>
                         </div>
                     </section>
