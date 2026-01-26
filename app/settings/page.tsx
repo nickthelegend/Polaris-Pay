@@ -11,9 +11,9 @@ export default function SettingsPage() {
         <h1 className="text-lg font-semibold">Settings</h1>
         <div className="flex items-center justify-between">
           <Label htmlFor="dark">Dark Mode</Label>
-          <Switch id="dark" checked readOnly />
+          <Switch id="dark" checked />
         </div>
-        <div className="text-xs text-foreground/70">Theme follows the neon-lime on dark PayEase design.</div>
+        <div className="text-xs text-foreground/70">Theme follows the neon-lime on dark Polaris design.</div>
       </div>
     </ConnectGate>
   )

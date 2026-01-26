@@ -22,9 +22,9 @@ export default function DocsPage() {
         </CardHeader>
         <CardContent className="space-y-4">
           <div>
-            <h3 className="font-semibold mb-2">What is PayEase?</h3>
+            <h3 className="font-semibold mb-2">What is Polaris?</h3>
             <p className="text-sm text-muted-foreground">
-              PayEase is a revolutionary crypto PayLater platform built on Algorand blockchain. 
+              Polaris is a revolutionary crypto PayLater platform built on Algorand blockchain.
               It allows you to buy now and pay later using cryptocurrency with zero collateral requirements.
             </p>
           </div>
@@ -111,12 +111,12 @@ export default function DocsPage() {
           <div>
             <h3 className="font-semibold mb-2">For Developers</h3>
             <p className="text-sm text-muted-foreground mb-3">
-              Integrate PayEase into your application with our comprehensive API.
+              Integrate Polaris into your application with our comprehensive API.
             </p>
             <div className="bg-muted p-3 rounded-lg">
               <code className="text-sm">
-                POST /api/checkout<br/>
-                GET /api/limits<br/>
+                POST /api/checkout<br />
+                GET /api/limits<br />
                 GET /api/transactions
               </code>
             </div>

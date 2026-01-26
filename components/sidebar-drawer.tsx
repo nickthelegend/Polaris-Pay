@@ -2,6 +2,7 @@
 import { Button } from "@/components/ui/button"
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet"
 import Link from "next/link"
+import NextImage from "next/image"
 import { usePathname } from "next/navigation"
 import {
   MenuIcon,
@@ -43,12 +44,7 @@ export function SidebarDrawer({ open, onOpenChange }: { open?: boolean; onOpenCh
       <SheetContent side="left" className="w-[280px] p-0 bg-[#070B12] border-r border-white/5 flex flex-col font-mono uppercase">
         <SheetHeader className="p-6 pb-2">
           <div className="flex items-center gap-2">
-            <div className="size-6 text-primary">
-              <svg fill="none" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
-                <path d="M24 4C25.7818 14.2173 33.7827 22.2182 44 24C33.7827 25.7818 25.7818 33.7827 24 44C22.2182 33.7827 14.2173 25.7818 4 24C14.2173 22.2182 22.2182 14.2173 24 4Z" fill="currentColor"></path>
-              </svg>
-            </div>
-            <SheetTitle className="text-white text-lg font-black tracking-tighter uppercase">Polaris</SheetTitle>
+            <NextImage src="/logo.png" alt="Logo" width={120} height={32} className="h-8 w-auto" />
           </div>
         </SheetHeader>
 

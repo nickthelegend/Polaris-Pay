@@ -10,12 +10,12 @@ import { Providers } from "@/components/providers"
 import { Suspense } from "react"
 
 export const metadata: Metadata = {
-  title: "PayEase - Crypto PayLater | Buy Now Pay Later with Cryptocurrency | Algorand DeFi",
-  description: "PayEase revolutionizes crypto payments with instant buy now pay later (BNPL) solutions on Algorand blockchain. Secure, fast, and decentralized crypto lending platform for digital payments.",
+  title: "Polaris - Crypto PayLater | Buy Now Pay Later with Cryptocurrency | Algorand DeFi",
+  description: "Polaris revolutionizes crypto payments with instant buy now pay later (BNPL) solutions on Algorand blockchain. Secure, fast, and decentralized crypto lending platform for digital payments.",
   keywords: "crypto paylater, buy now pay later crypto, algorand defi, cryptocurrency lending, crypto BNPL, blockchain payments, decentralized finance, crypto loans, digital wallet, algorand dapp",
-  authors: [{ name: "PayEase Team" }],
-  creator: "PayEase",
-  publisher: "PayEase",
+  authors: [{ name: "Polaris Team" }],
+  creator: "Polaris",
+  publisher: "Polaris",
   robots: "index, follow",
   viewport: "width=device-width, initial-scale=1",
   icons: {
@@ -26,21 +26,21 @@ export const metadata: Metadata = {
     type: "website",
     locale: "en_US",
     url: "https://pay-ease-ruby.vercel.app",
-    title: "PayEase - Revolutionary Crypto PayLater Platform",
-    description: "Experience the future of crypto payments with PayEase. Instant buy now pay later solutions on Algorand blockchain with zero collateral requirements.",
-    siteName: "PayEase",
+    title: "Polaris - Revolutionary Crypto PayLater Platform",
+    description: "Experience the future of crypto payments with Polaris. Instant buy now pay later solutions on Algorand blockchain with zero collateral requirements.",
+    siteName: "Polaris",
     images: [
       {
         url: "/logo.png",
         width: 1200,
         height: 630,
-        alt: "PayEase - Crypto PayLater Platform",
+        alt: "Polaris - Crypto PayLater Platform",
       },
     ],
   },
   twitter: {
     card: "summary_large_image",
-    title: "PayEase - Crypto PayLater Revolution",
+    title: "Polaris - Crypto PayLater Revolution",
     description: "Buy now, pay later with cryptocurrency. Secure Algorand-based DeFi lending platform.",
     images: ["/logo.png"],
   },

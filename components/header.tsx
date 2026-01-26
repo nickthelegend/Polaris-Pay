@@ -47,8 +47,7 @@ export function AppHeader() {
           <SidebarDrawer open={open} onOpenChange={setOpen} />
           <Link href="/" className="font-semibold tracking-wide">
             <span className="inline-flex items-center gap-2">
-              <Image src="/logo.png" alt="PayEase Logo" width={28} height={28} className="h-6 w-6" />
-              PayEase
+              <Image src="/logo.png" alt="Logo" width={120} height={32} className="h-8 w-auto" />
             </span>
           </Link>
         </div>

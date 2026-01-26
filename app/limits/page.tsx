@@ -34,7 +34,7 @@ export default function LimitsPage() {
             Your Journey to Higher Limits
           </h1>
           <p className="text-foreground/60 text-lg max-w-2xl mx-auto">
-            Empower your portfolio on PayEase. Every step you take unlocks more borrowing power and exclusive financial flexibility.
+            Empower your portfolio on Polaris. Every step you take unlocks more borrowing power and exclusive financial flexibility.
           </p>
         </div>
 
@@ -241,7 +241,7 @@ export default function LimitsPage() {
                   <div>
                     <h3 className="text-white font-bold text-lg leading-tight">Boost Limit with Your Credit Score</h3>
                     <p className="text-foreground/50 text-sm mt-2 leading-relaxed">
-                      Maintaining a perfect payment record on PayEase for 3 months unlocks a 25% "Trust Multiplier". No extra collateral needed.
+                      Maintaining a perfect payment record on Polaris for 3 months unlocks a 25% "Trust Multiplier". No extra collateral needed.
                     </p>
                     <button className="mt-4 flex items-center gap-2 text-primary font-black text-[10px] hover:gap-3 transition-all uppercase tracking-[0.2em]">
                       Analyze Credit Score <ArrowRight className="w-3 h-3" />
