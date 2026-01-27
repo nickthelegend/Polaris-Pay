@@ -150,6 +150,113 @@ export function usePolaris() {
         }
     };
 
+    const getScore = async () => {
+        try {
+            if (!wallet?.address) return "0";
+            const scoreManager = await getContract(CONTRACTS.MASTER.SCORE_MANAGER, ABIS.ScoreManager, NETWORKS.USC.id, false);
+            const score = await scoreManager.getScore(wallet.address);
+            return score.toString();
+        } catch (error) {
+            console.error("Fetch score failed:", error);
+            return "0";
+        }
+    };
+
+    const getCreditLimit = async (tokenAddress: string) => {
+        try {
+            if (!wallet?.address) return "0";
+            const scoreManager = await getContract(CONTRACTS.MASTER.SCORE_MANAGER, ABIS.ScoreManager, NETWORKS.USC.id, false);
+            const limit = await scoreManager.getCreditLimit(wallet.address, tokenAddress);
+            return formatUnits(limit, 18);
+        } catch (error) {
+            console.error("Fetch credit limit failed:", error);
+            return "0";
+        }
+    };
+
+    const createLoan = async (amount: string, tokenAddress: string) => {
+        setLoading(true);
+        try {
+            const loanEngine = await getContract(CONTRACTS.MASTER.LOAN_ENGINE, ABIS.LoanEngine, NETWORKS.USC.id);
+            const amountWei = parseUnits(amount, 18);
+
+            // Explicit gas limit for localnet/testnet stability
+            const tx = await loanEngine.createLoan(wallet?.address, amountWei, tokenAddress, { gasLimit: 5000000 });
+            const receipt = await tx.wait();
+            setTxHash(receipt.hash);
+            return receipt;
+        } catch (error) {
+            console.error("Create loan failed:", error);
+            throw error;
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const repayLoan = async (loanId: number, amount: string) => {
+        setLoading(true);
+        try {
+            const loanEngine = await getContract(CONTRACTS.MASTER.LOAN_ENGINE, ABIS.LoanEngine, NETWORKS.USC.id);
+            const amountWei = parseUnits(amount, 18);
+
+            const tx = await loanEngine.repay(loanId, amountWei);
+            const receipt = await tx.wait();
+            setTxHash(receipt.hash);
+            return receipt;
+        } catch (error) {
+            console.error("Repay loan failed:", error);
+            throw error;
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const getLoans = async () => {
+        try {
+            if (!wallet?.address) return [];
+            const loanEngine = await getContract(CONTRACTS.MASTER.LOAN_ENGINE, ABIS.LoanEngine, NETWORKS.USC.id, false);
+            const count = await loanEngine.loanCount();
+            const loans = [];
+
+            // Naive iteration for demo (in prod, use indexer or graph)
+            for (let i = 0; i < count; i++) {
+                const loan = await loanEngine.loans(i);
+                if (loan.borrower.toLowerCase() === wallet.address.toLowerCase()) {
+                    loans.push({
+                        id: i,
+                        principal: formatUnits(loan.principal, 18),
+                        repaid: formatUnits(loan.repaid, 18),
+                        startTime: Number(loan.startTime),
+                        status: Number(loan.status), // 0=Active, 1=Repaid, 2=Defaulted
+                        poolToken: loan.poolToken
+                    });
+                }
+            }
+            return loans;
+        } catch (error) {
+            console.error("Fetch loans failed:", error);
+            return [];
+        }
+    };
+
+    const requestWithdrawal = async (tokenAddress: string, amount: string) => {
+        setLoading(true);
+        try {
+            const poolManager = await getContract(CONTRACTS.MASTER.POOL_MANAGER, ABIS.PoolManager, NETWORKS.USC.id);
+            const amountWei = parseUnits(amount, 18);
+
+            const tx = await poolManager.requestWithdrawal(tokenAddress, amountWei);
+            const receipt = await tx.wait();
+            setTxHash(receipt.hash);
+            return receipt;
+        } catch (error) {
+            console.error("Withdrawal request failed:", error);
+            throw error;
+        } finally {
+            setLoading(false);
+        }
+    };
+
     return {
         loading,
         txHash,
@@ -160,6 +267,12 @@ export function usePolaris() {
         getLPBalance,
         getLocalVaultStats,
         getInsuranceStats,
+        getScore,
+        getCreditLimit,
+        createLoan,
+        repayLoan,
+        getLoans,
+        requestWithdrawal,
         authenticated,
         address: wallet?.address,
         chainId: wallet?.chainId

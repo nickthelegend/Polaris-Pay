@@ -39,7 +39,26 @@ import {
 } from "@/components/ui/dialog"
 
 export default function PoolsPage() {
-    const { depositLiquidity, getPoolLiquidity, getTokenBalance, getLPBalance, getLocalVaultStats, getInsuranceStats, loading, authenticated, chainId } = usePolaris();
+    const {
+        depositLiquidity,
+        addLiquidityFromProof,
+        requestWithdrawal,
+        getPoolLiquidity,
+        getTokenBalance,
+        getLPBalance,
+        getLocalVaultStats,
+        getInsuranceStats,
+        loading,
+        authenticated,
+        chainId,
+        getScore,
+        getCreditLimit,
+        createLoan,
+        repayLoan,
+        getLoans
+    } = usePolaris();
+
+    // Liquidity & Balance State
     const [usdcLiquidity, setUsdcLiquidity] = useState("0");
     const [usdtLiquidity, setUsdtLiquidity] = useState("0");
     const [ctcLiquidity, setCtcLiquidity] = useState("0");
@@ -50,10 +69,26 @@ export default function PoolsPage() {
     const [ctcLPBalance, setCtcLPBalance] = useState("0");
     const [selectedNetwork, setSelectedNetwork] = useState<"USC" | "LOCAL">("USC");
 
-    // Modal state
+    // Credit & Loan State
+    const [userScore, setUserScore] = useState("0");
+    const [creditLimit, setCreditLimit] = useState("0");
+    const [activeLoans, setActiveLoans] = useState<any[]>([]);
+
+    // Modal State
     const [isDepositOpen, setIsDepositOpen] = useState(false);
     const [depositTarget, setDepositTarget] = useState<{ token: string, symbol: string } | null>(null);
     const [depositAmount, setDepositAmount] = useState("100");
+
+    const [isLoanOpen, setIsLoanOpen] = useState(false);
+    const [loanAmount, setLoanAmount] = useState("50");
+
+    // Bridge State
+    const [isSyncOpen, setIsSyncOpen] = useState(false);
+    const [syncQueryId, setSyncQueryId] = useState("");
+
+    const [isWithdrawOpen, setIsWithdrawOpen] = useState(false);
+    const [withdrawAmount, setWithdrawAmount] = useState("50");
+    const [withdrawTarget, setWithdrawTarget] = useState<{ token: string, symbol: string } | null>(null);
 
     useEffect(() => {
         if (authenticated) {
@@ -65,7 +100,7 @@ export default function PoolsPage() {
         try {
             console.log(`[POLARIS] Refreshing data for network: ${selectedNetwork}...`);
 
-            // 1. Fetch Master Hub stats
+            // 1. Fetch Master Hub stats (Liquidity)
             const hubUsdcLiq = await getPoolLiquidity(CONTRACTS.SOURCE.USDC);
             const hubUsdtLiq = await getPoolLiquidity(CONTRACTS.SOURCE.USDT);
             const hubUsdcLP = await getLPBalance(CONTRACTS.SOURCE.USDC);
@@ -80,12 +115,21 @@ export default function PoolsPage() {
             const vaultUsdc = await getLocalVaultStats(CONTRACTS.SOURCE.USDC);
             const vaultUsdt = await getLocalVaultStats(CONTRACTS.SOURCE.USDT);
 
+            // 3. Score & Loans (Hub Only)
+            const score = await getScore();
+            setUserScore(score);
+            const limit = await getCreditLimit(CONTRACTS.SOURCE.USDC); // Check USDC limit
+            setCreditLimit(limit);
+
+            const loans = await getLoans();
+            setActiveLoans(loans);
+
             let currentUsdcDepth = "0";
             let currentUsdtDepth = "0";
             let currentUserUsdc = "0";
             let currentUserUsdt = "0";
 
-            // 3. Update display state based on selected network context
+            // 4. Update display state based on selected network context
             if (selectedNetwork === "LOCAL") {
                 currentUsdcDepth = vaultUsdc.total;
                 currentUsdtDepth = vaultUsdt.total;
@@ -107,10 +151,7 @@ export default function PoolsPage() {
             const totalTVL = Number(currentUsdcDepth) + Number(currentUsdtDepth) + Number(ctcStats.total);
             console.log("\n--- [TVL_VALIDATION_REPORT] ---");
             console.log(`[USDC_DEPTH]: $${currentUsdcDepth}`);
-            console.log(`[USDT_DEPTH]: $${currentUsdtDepth}`);
-            console.log(`[CTC_STAKED]: $${ctcStats.total}`);
-            console.log(`[TOTAL_POSITION_VALUE]: $${Number(currentUserUsdc) + Number(currentUserUsdt) + Number(ctcStats.user)}`);
-            console.log(`[PROTOCOL_TVL]: $${totalTVL}`);
+            console.log(`[SCORE]: ${score}`);
             console.log("-------------------------------\n");
 
             // Wallet balances from selected network
@@ -152,6 +193,68 @@ export default function PoolsPage() {
         }
     };
 
+    const executeLoan = async () => {
+        try {
+            toast.info(`Requesting ${loanAmount} USDC Loan...`);
+            await createLoan(loanAmount, CONTRACTS.SOURCE.USDC);
+            toast.success("Loan Approved & Funded!");
+            setIsLoanOpen(false);
+            refreshData();
+        } catch (error) {
+            console.error("Loan failed:", error);
+            toast.error("Loan request rejected. Check console.");
+        }
+    };
+
+    const executeRepay = async (id: number, amount: string) => {
+        try {
+            toast.info(`Repaying Loan #${id}...`);
+            await repayLoan(id, amount);
+            toast.success("Repayment successful!");
+            refreshData();
+        } catch (error) {
+            console.error("Repay failed:", error);
+            toast.error("Repayment failed.");
+        }
+    };
+
+    const executeSyncProof = async () => {
+        try {
+            toast.info("Submitting query proof to Hub...");
+            await addLiquidityFromProof(syncQueryId);
+            toast.success("Liquidity Synced Successfully!");
+            setIsSyncOpen(false);
+            setSyncQueryId("");
+            refreshData();
+        } catch (error) {
+            console.error("Sync failed:", error);
+            toast.error("Sync failed. Check query ID.");
+        }
+    };
+
+    const openWithdrawModal = (token: string, symbol: string) => {
+        if (selectedNetwork !== "USC") {
+            toast.warn("Switch to USC Master Hub to withdraw tokens");
+            return;
+        }
+        setWithdrawTarget({ token, symbol });
+        setIsWithdrawOpen(true);
+    };
+
+    const executeWithdrawal = async () => {
+        if (!withdrawTarget) return;
+        try {
+            toast.info(`Initiating withdrawal of ${withdrawAmount} ${withdrawTarget.symbol}...`);
+            await requestWithdrawal(withdrawTarget.token, withdrawAmount);
+            toast.success("Withdrawal Authorized! Process proof in spoke chain.");
+            setIsWithdrawOpen(false);
+            refreshData();
+        } catch (error) {
+            console.error("Withdrawal failed:", error);
+            toast.error("Withdrawal failed.");
+        }
+    };
+
     return (
         <ConnectGate>
             <div className="flex-1 flex flex-col py-8 gap-6 w-full font-mono text-white">
@@ -161,43 +264,69 @@ export default function PoolsPage() {
                     <h1 className="text-white text-xl tracking-tighter font-bold uppercase">Liquidity Pools Terminal</h1>
                 </div>
 
-                {/* Analytics Section */}
-                <section className="glass-card rounded-lg border border-white/10 overflow-hidden shadow-2xl">
-                    <div className="bg-white/5 px-4 py-2 border-b border-white/10 flex justify-between items-center text-white">
-                        <span className="text-[10px] text-white/40 uppercase tracking-widest">Consolidated_Summary // global_analytics</span>
-                        <span className="text-primary text-[10px] animate-pulse flex items-center gap-1.5">
-                            <span className="w-1.5 h-1.5 bg-primary rounded-full" />
-                            SIGNAL_STABLE
-                        </span>
+                {/* Credit Score & Analytics Section */}
+                <section className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    {/* TVL Card */}
+                    <div className="glass-card rounded-lg border border-white/10 overflow-hidden shadow-2xl col-span-2">
+                        <div className="bg-white/5 px-4 py-2 border-b border-white/10 flex justify-between items-center text-white">
+                            <span className="text-[10px] text-white/40 uppercase tracking-widest">Consolidated_Summary</span>
+                            <span className="text-primary text-[10px] animate-pulse flex items-center gap-1.5">
+                                <span className="w-1.5 h-1.5 bg-primary rounded-full" />
+                                SIGNAL_STABLE
+                            </span>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-3 divide-y md:divide-y-0 md:divide-x divide-white/10 text-white">
+                            <div className="p-6 flex flex-col gap-1">
+                                <span className="text-[10px] text-white/40 tracking-wider uppercase">Total_Value_Locked (TVL)</span>
+                                <div className="flex items-baseline gap-2 text-white">
+                                    <span className="text-white text-3xl font-bold tracking-tighter">${(Number(usdcLiquidity) + Number(usdtLiquidity) + Number(ctcLiquidity)).toLocaleString()}</span>
+                                </div>
+                            </div>
+                            <div className="p-6 flex flex-col gap-1">
+                                <span className="text-[10px] text-white/40 tracking-wider uppercase">Your_Position_Value</span>
+                                <div className="flex items-baseline gap-2">
+                                    <span className="text-white text-3xl font-bold tracking-tighter">${(Number(usdcLPBalance) + Number(usdtLPBalance) + Number(ctcLPBalance)).toLocaleString()}</span>
+                                </div>
+                            </div>
+                            <div className="p-6 flex flex-col gap-1">
+                                <span className="text-[10px] text-white/40 tracking-wider uppercase">Active_Loans</span>
+                                <div className="flex items-baseline gap-2">
+                                    <span className="text-primary text-3xl font-bold tracking-tighter">{activeLoans.filter(l => l.status === 0).length}</span>
+                                    <span className="text-white/40 text-[10px] uppercase">OPEN</span>
+                                </div>
+                            </div>
+                        </div>
                     </div>
-                    <div className="grid grid-cols-1 md:grid-cols-4 divide-y md:divide-y-0 md:divide-x divide-white/10 text-white">
-                        <div className="p-6 flex flex-col gap-1">
-                            <span className="text-[10px] text-white/40 tracking-wider uppercase">Total_Value_Locked (TVL)</span>
-                            <div className="flex items-baseline gap-2 text-white">
-                                <span className="text-white text-3xl font-bold tracking-tighter">${(Number(usdcLiquidity) + Number(usdtLiquidity) + Number(ctcLiquidity)).toLocaleString()}</span>
-                                <span className="text-primary text-xs font-bold">+0.0%</span>
-                            </div>
+
+                    {/* Credit Score Card */}
+                    <div className="glass-card rounded-lg border border-white/10 overflow-hidden shadow-2xl flex flex-col">
+                        <div className="bg-white/5 px-4 py-2 border-b border-white/10 text-white">
+                            <span className="text-[10px] text-white/40 uppercase tracking-widest">Risk_Assessment // FICO_On_Chain</span>
                         </div>
-                        <div className="p-6 flex flex-col gap-1">
-                            <span className="text-[10px] text-white/40 tracking-wider uppercase">Protocol_Wide_APY</span>
-                            <div className="flex items-baseline gap-2">
-                                <span className="text-primary text-3xl font-bold tracking-tighter">8.42%</span>
-                                <span className="text-white/40 text-[10px]">AVG_60D</span>
+                        <div className="p-6 flex flex-col gap-4 flex-1 justify-center relative overflow-hidden">
+                            <div className="absolute top-0 right-0 p-4 opacity-10">
+                                <ShieldCheck className="w-24 h-24 text-primary" />
                             </div>
-                        </div>
-                        <div className="p-6 flex flex-col gap-1">
-                            <span className="text-[10px] text-white/40 tracking-wider uppercase">Your_Position_Value</span>
-                            <div className="flex items-baseline gap-2">
-                                <span className="text-white text-3xl font-bold tracking-tighter">${(Number(usdcLPBalance) + Number(usdtLPBalance) + Number(ctcLPBalance)).toLocaleString()}</span>
-                                <span className="text-white/40 text-[10px] uppercase">Net_Equity</span>
+                            <div className="flex flex-col gap-1 z-10">
+                                <span className="text-[10px] text-white/40 tracking-wider uppercase">Credit_Score</span>
+                                <div className="flex items-baseline gap-2">
+                                    <span className={`text-4xl font-black tracking-tighter ${Number(userScore) > 700 ? 'text-primary' : Number(userScore) > 500 ? 'text-yellow-400' : 'text-red-400'}`}>
+                                        {userScore}
+                                    </span>
+                                    <span className="text-white/40 text-[10px] font-bold">/ 850</span>
+                                </div>
                             </div>
-                        </div>
-                        <div className="p-6 flex flex-col gap-1">
-                            <span className="text-[10px] text-white/40 tracking-wider uppercase">Health_Factor</span>
-                            <div className="flex items-baseline gap-2">
-                                <span className="text-white text-3xl font-bold tracking-tighter">2.41</span>
-                                <span className="text-primary text-[10px] uppercase px-1.5 py-0.5 bg-primary/10 border border-primary/20 rounded-sm">Secure</span>
+                            <div className="flex flex-col gap-1 z-10">
+                                <span className="text-[10px] text-white/40 tracking-wider uppercase">Borrowing_Power (USDC)</span>
+                                <span className="text-white text-xl font-bold tracking-tight">${Number(creditLimit).toLocaleString()}</span>
                             </div>
+
+                            <button
+                                onClick={() => setIsLoanOpen(true)}
+                                className="mt-2 bg-primary/20 hover:bg-primary/30 text-primary border border-primary/50 py-2 rounded-sm font-bold text-[10px] uppercase tracking-widest transition-all"
+                            >
+                                Request_New_Loan
+                            </button>
                         </div>
                     </div>
                 </section>
@@ -232,31 +361,28 @@ export default function PoolsPage() {
                                 </DropdownMenu>
 
                                 <button
+                                    onClick={() => setIsSyncOpen(true)}
+                                    className="flex items-center gap-2 bg-primary/10 border border-primary/20 px-3 py-1.5 rounded-sm hover:bg-primary/20 transition-all text-[10px] text-primary uppercase tracking-widest group"
+                                >
+                                    <Zap className="w-3 h-3 animate-pulse" />
+                                    SYNC_PROOF
+                                </button>
+
+                                <button
                                     onClick={refreshData}
                                     className="flex items-center gap-2 bg-white/5 border border-white/10 px-3 py-1.5 rounded-sm hover:bg-white/10 transition-all text-[10px] text-white/70 uppercase tracking-widest group"
                                 >
                                     <RefreshCw className={`w-3 h-3 text-primary group-hover:rotate-180 transition-transform duration-500 ${loading ? "animate-spin" : ""}`} />
                                     REFRESH
                                 </button>
-                                <div className="bg-white/5 border border-white/10 px-3 py-1 rounded flex items-center gap-2">
-                                    <Search className="w-3 h-3 text-white/40" />
-                                    <input
-                                        className="bg-transparent border-none p-0 text-[10px] text-white focus:ring-0 placeholder:text-white/20 uppercase w-32 xl:w-48"
-                                        placeholder="FILTER_POOL_OR_ASSET"
-                                        type="text"
-                                    />
-                                </div>
                             </div>
                         </div>
 
-                        <div className="glass-card rounded-lg border border-white/10 overflow-hidden flex flex-col flex-1 min-h-[600px]">
+                        <div className="glass-card rounded-lg border border-white/10 overflow-hidden flex flex-col flex-1 min-h-[400px]">
+                            {/* Pool List Header */}
                             <div className="grid grid-cols-12 bg-white/5 border-b border-white/10 px-4 py-3 sticky top-0 z-10 backdrop-blur-sm">
                                 <div className="col-span-4 flex items-center gap-1 cursor-pointer group">
                                     <span className="text-[10px] text-white/40 uppercase tracking-widest group-hover:text-primary transition-colors">Asset_Identifier</span>
-                                    <ArrowDown className="w-3 h-3 text-primary" />
-                                </div>
-                                <div className="col-span-2 text-right">
-                                    <span className="text-[10px] text-white/40 uppercase tracking-widest">Yield_APY</span>
                                 </div>
                                 <div className="col-span-2 text-right">
                                     <span className="text-[10px] text-white/40 uppercase tracking-widest">Pool_Depth</span>
@@ -264,12 +390,12 @@ export default function PoolsPage() {
                                 <div className="col-span-2 text-right">
                                     <span className="text-[10px] text-white/40 uppercase tracking-widest">My_Allocation</span>
                                 </div>
-                                <div className="col-span-2 text-right">
+                                <div className="col-span-4 text-right">
                                     <span className="text-[10px] text-white/40 uppercase tracking-widest">Execute</span>
                                 </div>
                             </div>
 
-                            <div className="overflow-y-auto max-h-[800px] scrollbar-hide">
+                            <div className="overflow-y-auto max-h-[600px] scrollbar-hide">
                                 {/* Pool Row: USDC */}
                                 <div className="grid grid-cols-12 px-4 py-4 border-b border-white/5 hover:bg-white/[0.04] transition-all items-center group">
                                     <div className="col-span-4 flex items-center gap-3">
@@ -282,15 +408,12 @@ export default function PoolsPage() {
                                         </div>
                                     </div>
                                     <div className="col-span-2 text-right">
-                                        <span className="text-primary font-bold text-sm">12.40%</span>
-                                    </div>
-                                    <div className="col-span-2 text-right">
                                         <span className="text-white/70 text-xs font-medium">${Number(usdcLiquidity).toLocaleString()}</span>
                                     </div>
                                     <div className="col-span-2 text-right">
                                         <span className="text-white text-xs">{Number(usdcLPBalance).toLocaleString()} <span className="text-[10px] text-white/40">USDC</span></span>
                                     </div>
-                                    <div className="col-span-2 flex justify-end gap-2">
+                                    <div className="col-span-4 flex justify-end gap-2">
                                         <button
                                             onClick={() => openDepositModal(CONTRACTS.SOURCE.USDC, "USDC")}
                                             className="bg-primary/90 hover:bg-primary text-primary-foreground px-2.5 py-1 rounded-sm font-black text-[9px] uppercase shadow-lg shadow-primary/5 transition-all disabled:opacity-50"
@@ -298,7 +421,12 @@ export default function PoolsPage() {
                                         >
                                             {loading ? "..." : "Deposit"}
                                         </button>
-                                        <button className="border border-white/10 text-white/60 hover:text-white hover:bg-white/5 px-2.5 py-1 rounded-sm font-bold text-[9px] uppercase transition-all">Withdraw</button>
+                                        <button
+                                            onClick={() => openWithdrawModal(CONTRACTS.SOURCE.USDC, "USDC")}
+                                            className="border border-white/10 text-white/60 hover:text-white hover:bg-white/5 px-2.5 py-1 rounded-sm font-bold text-[9px] uppercase transition-all"
+                                        >
+                                            Withdraw
+                                        </button>
                                     </div>
                                 </div>
 
@@ -314,15 +442,12 @@ export default function PoolsPage() {
                                         </div>
                                     </div>
                                     <div className="col-span-2 text-right">
-                                        <span className="text-primary font-bold text-sm">11.80%</span>
-                                    </div>
-                                    <div className="col-span-2 text-right">
                                         <span className="text-white/70 text-xs font-medium">${Number(usdtLiquidity).toLocaleString()}</span>
                                     </div>
                                     <div className="col-span-2 text-right">
                                         <span className="text-white text-xs">{Number(usdtLPBalance).toLocaleString()} <span className="text-[10px] text-white/20">USDT</span></span>
                                     </div>
-                                    <div className="col-span-2 flex justify-end gap-2">
+                                    <div className="col-span-4 flex justify-end gap-2">
                                         <button
                                             onClick={() => openDepositModal(CONTRACTS.SOURCE.USDT, "USDT")}
                                             className="bg-primary/90 hover:bg-primary text-primary-foreground px-2.5 py-1 rounded-sm font-black text-[9px] uppercase shadow-lg shadow-primary/5 transition-all disabled:opacity-50"
@@ -330,7 +455,12 @@ export default function PoolsPage() {
                                         >
                                             {loading ? "..." : "Deposit"}
                                         </button>
-                                        <button className="border border-white/10 text-white/60 hover:text-white hover:bg-white/5 px-2.5 py-1 rounded-sm font-bold text-[9px] uppercase transition-all">Withdraw</button>
+                                        <button
+                                            onClick={() => openWithdrawModal(CONTRACTS.SOURCE.USDT, "USDT")}
+                                            className="border border-white/10 text-white/60 hover:text-white hover:bg-white/5 px-2.5 py-1 rounded-sm font-bold text-[9px] uppercase transition-all"
+                                        >
+                                            Withdraw
+                                        </button>
                                     </div>
                                 </div>
 
@@ -346,106 +476,202 @@ export default function PoolsPage() {
                                         </div>
                                     </div>
                                     <div className="col-span-2 text-right">
-                                        <span className="text-primary font-bold text-sm">18.20%</span>
-                                    </div>
-                                    <div className="col-span-2 text-right">
                                         <span className="text-white/70 text-xs font-medium">${Number(ctcLiquidity).toLocaleString()}</span>
                                     </div>
                                     <div className="col-span-2 text-right">
                                         <span className="text-white text-xs">{Number(ctcLPBalance).toLocaleString()} <span className="text-[10px] text-white/40">CTC</span></span>
                                     </div>
-                                    <div className="col-span-2 flex justify-end gap-2">
+                                    <div className="col-span-4 flex justify-end gap-2">
                                         <button className="bg-primary/90 hover:bg-primary text-primary-foreground px-2.5 py-1 rounded-sm font-black text-[9px] uppercase shadow-lg shadow-primary/5 transition-all">Stake</button>
-                                        <button className="border border-white/10 text-white/60 hover:text-white hover:bg-white/5 px-2.5 py-1 rounded-sm font-bold text-[9px] uppercase transition-all">Unstake</button>
-                                    </div>
-                                </div>
-
-                                {/* Pool Row: WBTC (Locked) */}
-                                <div className="grid grid-cols-12 px-4 py-4 border-b border-white/5 items-center opacity-50 grayscale hover:grayscale-0 hover:opacity-100 transition-all cursor-not-allowed group">
-                                    <div className="col-span-4 flex items-center gap-3">
-                                        <div className="size-8 bg-white/10 rounded-sm flex items-center justify-center border border-white/10 transition-colors">
-                                            <Lock className="w-4 h-4 text-white/40" />
-                                        </div>
-                                        <div className="flex flex-col">
-                                            <span className="text-white/60 text-xs font-bold uppercase tracking-tight">WBTC_CORE</span>
-                                            <span className="text-[9px] text-white/20 uppercase tracking-widest font-bold font-mono">MAINTENANCE_MODE</span>
-                                        </div>
-                                    </div>
-                                    <div className="col-span-2 text-right">
-                                        <span className="text-primary/60 font-bold text-sm">4.10%</span>
-                                    </div>
-                                    <div className="col-span-2 text-right">
-                                        <span className="text-white/40 text-xs font-medium">$1.8M</span>
-                                    </div>
-                                    <div className="col-span-2 text-right">
-                                        <span className="text-white/40 text-xs">0.00</span>
-                                    </div>
-                                    <div className="col-span-2 flex justify-end gap-2">
-                                        <button className="bg-primary/20 text-primary px-2.5 py-1 rounded-sm font-black text-[9px] uppercase cursor-not-allowed">Offline</button>
+                                        <button
+                                            onClick={() => openWithdrawModal(CONTRACTS.SOURCE.CTC, "CTC")}
+                                            className="border border-white/10 text-white/60 hover:text-white hover:bg-white/5 px-2.5 py-1 rounded-sm font-bold text-[9px] uppercase transition-all"
+                                        >
+                                            Unstake
+                                        </button>
                                     </div>
                                 </div>
                             </div>
                         </div>
                     </section>
+
+                    {/* Active Loans Section */}
+                    <section className="flex flex-col gap-4">
+                        <div className="flex items-center gap-2">
+                            <Database className="w-4 h-4 text-primary" />
+                            <h2 className="text-white text-xs font-bold uppercase tracking-widest">Active_Loans_Ledger</h2>
+                        </div>
+
+                        <div className="glass-card rounded-lg border border-white/10 overflow-hidden flex flex-col">
+                            {activeLoans.length === 0 ? (
+                                <div className="p-8 text-center text-white/30 text-xs font-mono uppercase tracking-widest">
+                                    No Active Loans Found
+                                </div>
+                            ) : (
+                                activeLoans.map((loan) => (
+                                    <div key={loan.id} className="grid grid-cols-12 px-4 py-4 border-b border-white/5 hover:bg-white/[0.04] transition-all items-center">
+                                        <div className="col-span-2">
+                                            <span className="text-white text-xs font-bold">Loan #{loan.id}</span>
+                                        </div>
+                                        <div className="col-span-3 text-right">
+                                            <span className="text-white text-xs">{loan.principal} USDC</span>
+                                            <span className="block text-[9px] text-white/40">Principal</span>
+                                        </div>
+                                        <div className="col-span-3 text-right">
+                                            <span className="text-primary text-xs">{loan.principal - loan.repaid} USDC</span>
+                                            <span className="block text-[9px] text-white/40">Remaining</span>
+                                        </div>
+                                        <div className="col-span-2 text-center">
+                                            <span className={`text-[9px] px-1.5 py-0.5 rounded-sm border ${loan.status === 0 ? 'border-primary/40 text-primary bg-primary/10' : 'border-white/20 text-white/40'}`}>
+                                                {loan.status === 0 ? "ACTIVE" : loan.status === 1 ? "REPAID" : "DEFAULT"}
+                                            </span>
+                                        </div>
+                                        <div className="col-span-2 text-right">
+                                            {loan.status === 0 && (
+                                                <button
+                                                    onClick={() => executeRepay(loan.id, (loan.principal - loan.repaid).toString())}
+                                                    className="bg-white/10 hover:bg-white/20 text-white px-2 py-1 rounded-sm text-[9px] uppercase font-bold"
+                                                >
+                                                    Repay Full
+                                                </button>
+                                            )}
+                                        </div>
+                                    </div>
+                                ))
+                            )}
+                        </div>
+                    </section>
                 </div>
             </div>
 
+            {/* Deposit Modal */}
             <Dialog open={isDepositOpen} onOpenChange={setIsDepositOpen}>
-                <DialogContent className="bg-zinc-950 border border-white/10 text-white font-mono rounded-lg shadow-2xl overflow-hidden p-0 gap-0">
+                <DialogContent className="bg-zinc-950 border border-white/10 text-white font-mono rounded-lg shadow-2xl p-0 gap-0">
                     <div className="bg-white/5 px-4 py-2 border-b border-white/10 flex justify-between items-center">
                         <span className="text-[10px] text-white/40 uppercase tracking-widest">Protocol_Input // liquidity_provision</span>
                         <span className="text-primary text-[10px] animate-pulse">AWAITING_QUANTITY</span>
                     </div>
-
                     <div className="p-6 flex flex-col gap-6">
                         <div className="flex flex-col gap-2">
                             <h2 className="text-xl font-bold uppercase tracking-tighter">Enter Deposit Amount</h2>
                             <p className="text-[10px] text-white/40 uppercase leading-relaxed">
                                 Provide liquidity to the {depositTarget?.symbol} pool on LOCALNET.
-                                Funds will be locked in the source vault.
                             </p>
                         </div>
-
                         <div className="relative group">
-                            <div className="absolute inset-y-0 left-3 flex items-center pointer-events-none">
-                                <Wallet className="w-4 h-4 text-primary opacity-50" />
-                            </div>
                             <input
                                 type="number"
                                 value={depositAmount}
                                 onChange={(e) => setDepositAmount(e.target.value)}
-                                className="w-full bg-white/5 border border-white/10 rounded-sm py-3 pl-10 pr-4 text-white font-bold text-lg focus:outline-none focus:ring-1 focus:ring-primary focus:border-transparent transition-all placeholder:text-white/10"
+                                className="w-full bg-white/5 border border-white/10 rounded-sm py-3 pl-4 pr-4 text-white font-bold text-lg focus:outline-none focus:ring-1 focus:ring-primary"
                                 placeholder="0.00"
                             />
-                            <div className="absolute inset-y-0 right-3 flex items-center pointer-events-none">
-                                <span className="text-[10px] font-bold text-white/40">{depositTarget?.symbol}</span>
-                            </div>
                         </div>
-
-                        <div className="flex flex-col gap-3">
-                            <button
-                                onClick={executeDeposit}
-                                disabled={loading}
-                                className="w-full bg-primary hover:bg-primary/80 text-primary-foreground py-3 rounded-sm font-black text-xs uppercase tracking-widest shadow-lg shadow-primary/20 transition-all disabled:opacity-50 active:scale-95"
-                            >
-                                {loading ? "TRANSACTING..." : "Confirm_Deposit"}
-                            </button>
-                            <button
-                                onClick={() => setIsDepositOpen(false)}
-                                className="w-full bg-transparent hover:bg-white/5 text-white/40 hover:text-white/60 py-2 rounded-sm font-bold text-[10px] uppercase tracking-widest transition-all"
-                            >
-                                Cancel_Request
-                            </button>
-                        </div>
+                        <button
+                            onClick={executeDeposit}
+                            disabled={loading}
+                            className="w-full bg-primary hover:bg-primary/80 text-primary-foreground py-3 rounded-sm font-black text-xs uppercase cursor-pointer"
+                        >
+                            {loading ? "Transacting..." : "Confirm Deposit"}
+                        </button>
                     </div>
+                </DialogContent>
+            </Dialog>
 
-                    <div className="bg-white/5 px-4 py-1.5 border-t border-white/10 flex justify-between items-center">
-                        <span className="text-[9px] text-white/20 uppercase">Network: LOCALNET</span>
-                        <div className="flex gap-2">
-                            <div className="w-1 h-1 rounded-full bg-primary/20" />
-                            <div className="w-1 h-1 rounded-full bg-primary/20" />
-                            <div className="w-1 h-1 rounded-full bg-primary/20" />
+            {/* Loan Request Modal */}
+            <Dialog open={isLoanOpen} onOpenChange={setIsLoanOpen}>
+                <DialogContent className="bg-zinc-950 border border-white/10 text-white font-mono rounded-lg shadow-2xl p-0 gap-0">
+                    <div className="bg-white/5 px-4 py-2 border-b border-white/10 flex justify-between items-center">
+                        <span className="text-[10px] text-white/40 uppercase tracking-widest">BNPL_Request // Master_Hub</span>
+                    </div>
+                    <div className="p-6 flex flex-col gap-6">
+                        <div className="flex flex-col gap-2">
+                            <h2 className="text-xl font-bold uppercase tracking-tighter">Request Loan (USDC)</h2>
+                            <p className="text-[10px] text-white/40 uppercase">
+                                Your max limit is {creditLimit} USDC based on your Score of {userScore}.
+                            </p>
                         </div>
+                        <div className="relative group">
+                            <input
+                                type="number"
+                                value={loanAmount}
+                                onChange={(e) => setLoanAmount(e.target.value)}
+                                className="w-full bg-white/5 border border-white/10 rounded-sm py-3 pl-4 pr-4 text-white font-bold text-lg focus:outline-none focus:ring-1 focus:ring-primary"
+                            />
+                        </div>
+                        <button
+                            onClick={executeLoan}
+                            disabled={loading}
+                            className="w-full bg-primary hover:bg-primary/80 text-primary-foreground py-3 rounded-sm font-black text-xs uppercase cursor-pointer"
+                        >
+                            {loading ? "Processing..." : "Create Loan"}
+                        </button>
+                    </div>
+                </DialogContent>
+            </Dialog>
+            {/* Sync Proof Modal */}
+            <Dialog open={isSyncOpen} onOpenChange={setIsSyncOpen}>
+                <DialogContent className="bg-zinc-950 border border-white/10 text-white font-mono rounded-lg shadow-2xl p-0 gap-0">
+                    <div className="bg-white/5 px-4 py-2 border-b border-white/10 flex justify-between items-center">
+                        <span className="text-[10px] text-white/40 uppercase tracking-widest">Oracle_Synchronization // master_hub</span>
+                        <span className="text-primary text-[10px] animate-pulse">AWAITING_QUERY_ID</span>
+                    </div>
+                    <div className="p-6 flex flex-col gap-6">
+                        <div className="flex flex-col gap-2">
+                            <h2 className="text-xl font-bold uppercase tracking-tighter">Sync Liquidity Proof</h2>
+                            <p className="text-[10px] text-white/40 uppercase">
+                                Enter the Query ID provided by the Oracle Relayer to finalize your deposit on the Hub.
+                            </p>
+                        </div>
+                        <div className="relative group">
+                            <input
+                                type="text"
+                                value={syncQueryId}
+                                onChange={(e) => setSyncQueryId(e.target.value)}
+                                className="w-full bg-white/5 border border-white/10 rounded-sm py-3 px-4 text-white font-mono text-sm focus:outline-none focus:ring-1 focus:ring-primary"
+                                placeholder="0x..."
+                            />
+                        </div>
+                        <button
+                            onClick={executeSyncProof}
+                            disabled={loading || !syncQueryId}
+                            className="w-full bg-primary hover:bg-primary/80 text-primary-foreground py-3 rounded-sm font-black text-xs uppercase cursor-pointer disabled:opacity-50"
+                        >
+                            {loading ? "Syncing..." : "Finalize Deposit"}
+                        </button>
+                    </div>
+                </DialogContent>
+            </Dialog>
+
+            {/* Withdrawal Modal */}
+            <Dialog open={isWithdrawOpen} onOpenChange={setIsWithdrawOpen}>
+                <DialogContent className="bg-zinc-950 border border-white/10 text-white font-mono rounded-lg shadow-2xl p-0 gap-0">
+                    <div className="bg-white/5 px-4 py-2 border-b border-white/10 flex justify-between items-center">
+                        <span className="text-[10px] text-white/40 uppercase tracking-widest">Hub_Withdrawal // authorization_request</span>
+                    </div>
+                    <div className="p-6 flex flex-col gap-6">
+                        <div className="flex flex-col gap-2">
+                            <h2 className="text-xl font-bold uppercase tracking-tighter">Withdraw {withdrawTarget?.symbol}</h2>
+                            <p className="text-[10px] text-white/40 uppercase">
+                                Authorized withdrawals will be emitted to the reverse bridge.
+                            </p>
+                        </div>
+                        <div className="relative group">
+                            <input
+                                type="number"
+                                value={withdrawAmount}
+                                onChange={(e) => setWithdrawAmount(e.target.value)}
+                                className="w-full bg-white/5 border border-white/10 rounded-sm py-3 px-4 text-white font-bold text-lg focus:outline-none focus:ring-1 focus:ring-primary"
+                                placeholder="0.00"
+                            />
+                        </div>
+                        <button
+                            onClick={executeWithdrawal}
+                            disabled={loading}
+                            className="w-full bg-red-500 hover:bg-red-400 text-white py-3 rounded-sm font-black text-xs uppercase cursor-pointer"
+                        >
+                            {loading ? "Authorizing..." : "Request Withdrawal"}
+                        </button>
                     </div>
                 </DialogContent>
             </Dialog>
