@@ -11,9 +11,18 @@ export function usePolaris() {
     const [loading, setLoading] = useState(false);
     const [txHash, setTxHash] = useState<string | null>(null);
 
+    const getSpokeConfig = (networkId: number) => {
+        if (networkId === NETWORKS.SEPOLIA.id) return CONTRACTS.SPOKES.SEPOLIA;
+        if (networkId === NETWORKS.BASE_SEPOLIA.id) return CONTRACTS.SPOKES.BASE_SEPOLIA;
+        if (networkId === NETWORKS.GANACHE.id) return CONTRACTS.SPOKES.GANACHE;
+        return CONTRACTS.SOURCE; // Fallback
+    };
+
     const getContract = useCallback(async (address: string, abi: any, networkId: number, useSigner = true) => {
         const net = Object.values(NETWORKS).find(n => n.id === networkId);
         if (!net) throw new Error("Network config not found");
+
+        const actualAbi = abi.abi || abi; // Handle both full artifact and just ABI array
 
         if (useSigner) {
             if (!wallet) throw new Error("Wallet not connected");
@@ -23,23 +32,26 @@ export function usePolaris() {
             }
             const provider = new BrowserProvider(await wallet.getEthereumProvider());
             const signer = await provider.getSigner();
-            return new Contract(address, abi, signer);
+            return new Contract(address, actualAbi, signer);
         } else {
             const provider = new JsonRpcProvider(net.rpc);
-            return new Contract(address, abi, provider);
+            return new Contract(address, actualAbi, provider);
         }
     }, [wallet]);
 
-    const depositLiquidity = async (tokenAddress: string, amount: string) => {
+    const depositLiquidity = async (tokenAddress: string, amount: string, networkId: number) => {
         setLoading(true);
         try {
-            const vault = await getContract(CONTRACTS.SOURCE.LIQUIDITY_VAULT, ABIS.LiquidityVault, NETWORKS.LOCAL.id);
-            const token = await getContract(tokenAddress, ABIS.MockERC20, NETWORKS.LOCAL.id);
+            const config = getSpokeConfig(networkId);
+            const vault = await getContract(config.LIQUIDITY_VAULT, ABIS.LiquidityVault, networkId);
+            const token = await getContract(tokenAddress, ABIS.MockERC20, networkId);
             const amountWei = parseUnits(amount, 18);
 
-            const approveTx = await token.approve(CONTRACTS.SOURCE.LIQUIDITY_VAULT, amountWei);
+            console.log(`[POLARIS] Approving token on chain ${networkId}...`);
+            const approveTx = await token.approve(config.LIQUIDITY_VAULT, amountWei);
             await approveTx.wait();
 
+            console.log(`[POLARIS] Depositing into vault on chain ${networkId}...`);
             const depositTx = await vault.deposit(tokenAddress, amountWei);
             const receipt = await depositTx.wait();
 
@@ -104,11 +116,20 @@ export function usePolaris() {
         }
     };
 
-    const getLocalVaultStats = async (tokenAddress: string) => {
+    const getLocalVaultStats = async (tokenAddress: string, networkId: number) => {
         try {
-            const vault = await getContract(CONTRACTS.SOURCE.LIQUIDITY_VAULT, ABIS.LiquidityVault, NETWORKS.LOCAL.id, false);
+            const config = getSpokeConfig(networkId);
+            const vault = await getContract(config.LIQUIDITY_VAULT, ABIS.LiquidityVault, networkId, false);
             const filter = vault.filters.LiquidityDeposited(null, tokenAddress);
-            const events = await vault.queryFilter(filter);
+
+            // Limit block range to avoid RPC errors
+            const net = Object.values(NETWORKS).find(n => n.id === networkId);
+            if (!net) throw new Error("Network not found");
+            const provider = new JsonRpcProvider(net.rpc);
+            const currentBlock = await provider.getBlockNumber();
+            const fromBlock = Math.max(0, currentBlock - 49000);
+
+            const events = await vault.queryFilter(filter, fromBlock, 'latest');
 
             let totalLiquidity = BigInt(0);
             let userLiquidity = BigInt(0);
@@ -131,25 +152,6 @@ export function usePolaris() {
         }
     };
 
-    const getInsuranceStats = async () => {
-        try {
-            const pool = await getContract(CONTRACTS.MASTER.INSURANCE_POOL, ABIS.InsurancePool, NETWORKS.USC.id, false);
-            const total = await pool.totalStaked();
-            let user = "0";
-            if (wallet?.address) {
-                const balance = await pool.stakedCTC(wallet.address);
-                user = formatUnits(balance, 18);
-            }
-            return {
-                total: formatUnits(total, 18),
-                user: user
-            };
-        } catch (error) {
-            console.error("Fetch insurance stats failed:", error);
-            return { total: "0", user: "0" };
-        }
-    };
-
     const getScore = async () => {
         try {
             if (!wallet?.address) return "0";
@@ -162,11 +164,11 @@ export function usePolaris() {
         }
     };
 
-    const getCreditLimit = async (tokenAddress: string) => {
+    const getCreditLimit = async () => {
         try {
             if (!wallet?.address) return "0";
             const scoreManager = await getContract(CONTRACTS.MASTER.SCORE_MANAGER, ABIS.ScoreManager, NETWORKS.USC.id, false);
-            const limit = await scoreManager.getCreditLimit(wallet.address, tokenAddress);
+            const limit = await scoreManager.getCreditLimit(wallet.address);
             return formatUnits(limit, 18);
         } catch (error) {
             console.error("Fetch credit limit failed:", error);
@@ -180,7 +182,6 @@ export function usePolaris() {
             const loanEngine = await getContract(CONTRACTS.MASTER.LOAN_ENGINE, ABIS.LoanEngine, NETWORKS.USC.id);
             const amountWei = parseUnits(amount, 18);
 
-            // Explicit gas limit for localnet/testnet stability
             const tx = await loanEngine.createLoan(wallet?.address, amountWei, tokenAddress, { gasLimit: 5000000 });
             const receipt = await tx.wait();
             setTxHash(receipt.hash);
@@ -218,7 +219,6 @@ export function usePolaris() {
             const count = await loanEngine.loanCount();
             const loans = [];
 
-            // Naive iteration for demo (in prod, use indexer or graph)
             for (let i = 0; i < count; i++) {
                 const loan = await loanEngine.loans(i);
                 if (loan.borrower.toLowerCase() === wallet.address.toLowerCase()) {
@@ -227,7 +227,7 @@ export function usePolaris() {
                         principal: formatUnits(loan.principal, 18),
                         repaid: formatUnits(loan.repaid, 18),
                         startTime: Number(loan.startTime),
-                        status: Number(loan.status), // 0=Active, 1=Repaid, 2=Defaulted
+                        status: Number(loan.status),
                         poolToken: loan.poolToken
                     });
                 }
@@ -266,7 +266,6 @@ export function usePolaris() {
         getTokenBalance,
         getLPBalance,
         getLocalVaultStats,
-        getInsuranceStats,
         getScore,
         getCreditLimit,
         createLoan,

@@ -13,6 +13,7 @@ import { LogOut } from "lucide-react"
 
 const NAV = [
   { href: "/pools", label: "Pools" },
+  { href: "/merchant", label: "Merchant" },
   { href: "/merchants", label: "Shop" },
   { href: "/limits", label: "Limits" },
   { href: "/docs", label: "Docs" },
