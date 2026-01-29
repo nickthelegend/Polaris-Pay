@@ -1,15 +1,33 @@
+
 import { NextResponse } from "next/server"
+import { supabase } from "@/lib/supabase"
 
 export async function GET() {
+  const { data: allTx, error } = await supabase
+    .from('transactions')
+    .select('*')
+    .order('created_at', { ascending: false })
+
+  if (error) {
+    return NextResponse.json({ error: error.message }, { status: 500 })
+  }
+
+  // Separate into recent transactions (spends) and bills
+  // Logic: 'bill' category goes to bills, 'spend' goes to transactions
+  // Or just separate by category as defined in schema
+  const transactions = allTx.filter(t => t.category === 'spend' || t.category === 'repayment')
+  const bills = allTx.filter(t => t.category === 'bill')
+
   return NextResponse.json({
-    transactions: [
-      { title: "Groceries", amount: 24.0, asset: "USDC" },
-      { title: "Subscription", amount: 12.99, asset: "USDC" },
-      { title: "Network fee", amount: 0.25, asset: "ALGO" },
-    ],
-    bills: [
-      { title: "Streaming — due 11/02", amount: 9.99, asset: "USDC" },
-      { title: "Phone — due 10/30", amount: 14.5, asset: "USDC" },
-    ],
+    transactions: transactions.map(t => ({
+      title: t.title,
+      amount: t.amount,
+      asset: t.asset
+    })),
+    bills: bills.map(b => ({
+      title: b.title,
+      amount: b.amount,
+      asset: b.asset
+    }))
   })
 }

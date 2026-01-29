@@ -1,5 +1,8 @@
 "use client"
 
+import useSWR from "swr"
+const fetcher = (url: string) => fetch(url).then((r) => r.json())
+
 import { ConnectGate } from "@/components/connect-gate"
 import {
     Plus,
@@ -103,6 +106,12 @@ export default function PoolsPage() {
     const [isWithdrawOpen, setIsWithdrawOpen] = useState(false);
     const [withdrawAmount, setWithdrawAmount] = useState("50");
     const [withdrawTarget, setWithdrawTarget] = useState<{ token: string, symbol: string } | null>(null);
+
+    const { data: poolsData } = useSWR("/api/pools", fetcher)
+    const pools = poolsData?.pools ?? []
+
+    const usdcPool = pools.find((p: any) => p.name === 'USDC_VAULT' || p.name === 'USDC')
+    const usdtPool = pools.find((p: any) => p.name === 'USDT_VAULT' || p.name === 'USDT')
 
     useEffect(() => {
         if (authenticated) {
@@ -385,7 +394,10 @@ export default function PoolsPage() {
                                 <div className="col-span-2 text-right">
                                     <span className="text-[10px] text-white/40 uppercase tracking-widest">Ownership</span>
                                 </div>
-                                <div className="col-span-4 text-right">
+                                <div className="col-span-2 text-right">
+                                    <span className="text-[10px] text-white/40 uppercase tracking-widest">APR</span>
+                                </div>
+                                <div className="col-span-2 text-right">
                                     <span className="text-[10px] text-white/40 uppercase tracking-widest">Control</span>
                                 </div>
                             </div>
@@ -411,7 +423,10 @@ export default function PoolsPage() {
                                     <div className="col-span-2 text-right">
                                         <span className="text-white text-sm tracking-tighter font-medium">${Number(usdcLPBalance).toLocaleString()}</span>
                                     </div>
-                                    <div className="col-span-4 flex justify-end gap-3">
+                                    <div className="col-span-2 text-right">
+                                        <span className="text-primary text-sm tracking-tighter font-bold">{usdcPool?.apr ?? 0}%</span>
+                                    </div>
+                                    <div className="col-span-2 flex justify-end gap-3">
                                         <button
                                             onClick={() => openDepositModal(selectedView === 'USC' ? CONTRACTS.SPOKES.SEPOLIA.USDC : (CONTRACTS.SPOKES as Record<string, any>)[selectedView].USDC, "USDC")}
                                             className="bg-primary/90 hover:bg-primary text-primary-foreground px-4 py-1.5 rounded-sm font-black text-[10px] uppercase cursor-pointer"
@@ -447,7 +462,10 @@ export default function PoolsPage() {
                                     <div className="col-span-2 text-right">
                                         <span className="text-white text-sm tracking-tighter font-medium">${Number(usdtLPBalance).toLocaleString()}</span>
                                     </div>
-                                    <div className="col-span-4 flex justify-end gap-3">
+                                    <div className="col-span-2 text-right">
+                                        <span className="text-primary text-sm tracking-tighter font-bold">{usdtPool?.apr ?? 0}%</span>
+                                    </div>
+                                    <div className="col-span-2 flex justify-end gap-3">
                                         <button
                                             onClick={() => openDepositModal(selectedView === 'USC' ? CONTRACTS.SPOKES.SEPOLIA.USDT : (CONTRACTS.SPOKES as Record<string, any>)[selectedView].USDT, "USDT")}
                                             className="bg-primary/90 hover:bg-primary text-primary-foreground px-4 py-1.5 rounded-sm font-black text-[10px] uppercase cursor-pointer"

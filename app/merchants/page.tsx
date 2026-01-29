@@ -1,66 +1,21 @@
 "use client"
 
-import { Search, Globe, Gamepad2, Cpu, Sparkles, Tv, Zap, ArrowRight, ShoppingCart } from "lucide-react"
+import { Search, Globe, Gamepad2, Cpu, Sparkles, Tv, Zap, ArrowRight } from "lucide-react"
 import { ConnectGate } from "@/components/connect-gate"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { useState } from "react"
 import Link from "next/link"
+import useSWR from "swr"
+
+const fetcher = (url: string) => fetch(url).then((r) => r.json())
 
 const CATEGORIES = ["ALL", "Gaming", "Technology", "Entertainment", "Fashion", "Travel"]
 
-const MERCHANTS = [
-    {
-        id: 1,
-        name: "GLOBAL_MARKET_ACCESS",
-        category: "Travel",
-        icon: Globe,
-        limit: 1200,
-        plan: "4_PAYMENTS // 0%_APR"
-    },
-    {
-        id: 2,
-        name: "GAMING_HUB_INTERFACE",
-        category: "Gaming",
-        icon: Gamepad2,
-        limit: 850,
-        plan: "4_PAYMENTS // 0%_APR"
-    },
-    {
-        id: 3,
-        name: "HARDWARE_NODE_SYNDICATE",
-        category: "Technology",
-        icon: Cpu,
-        limit: 2500,
-        plan: "4_PAYMENTS // 0%_APR"
-    },
-    {
-        id: 4,
-        name: "LIFESTYLE_ASSET_VAULT",
-        category: "Fashion",
-        icon: Sparkles,
-        limit: 500,
-        plan: "4_PAYMENTS // 0%_APR"
-    },
-    {
-        id: 5,
-        name: "MEDIA_STREAM_RELAY",
-        category: "Entertainment",
-        icon: Tv,
-        limit: 300,
-        plan: "4_PAYMENTS // 0%_APR"
-    },
-    {
-        id: 6,
-        name: "ADVANCED_TECH_RESOURCES",
-        category: "Technology",
-        icon: Zap,
-        limit: 1800,
-        plan: "4_PAYMENTS // 0%_APR"
-    }
-]
-
 export default function MerchantsPage() {
+    const { data } = useSWR("/api/merchants", fetcher)
+    const merchants = data?.merchants ?? []
+
     const [search, setSearch] = useState("")
     const [activeTab, setActiveTab] = useState("ALL")
 
@@ -104,8 +59,8 @@ export default function MerchantsPage() {
                                 key={cat}
                                 onClick={() => setActiveTab(cat)}
                                 className={`px-4 py-1.5 rounded border text-[10px] font-bold tracking-widest transition-all uppercase ${activeTab === cat
-                                        ? "border-primary bg-primary text-black"
-                                        : "border-white/10 text-foreground/40 hover:border-primary/50 hover:text-primary"
+                                    ? "border-primary bg-primary text-black"
+                                    : "border-white/10 text-foreground/40 hover:border-primary/50 hover:text-primary"
                                     }`}
                             >
                                 {cat}
@@ -116,36 +71,45 @@ export default function MerchantsPage() {
 
                 {/* Grid */}
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 mb-12">
-                    {MERCHANTS.filter(m =>
+                    {merchants.filter((m: any) =>
                         (activeTab === "ALL" || m.category === activeTab) &&
                         m.name.toLowerCase().includes(search.toLowerCase())
-                    ).map((m) => (
-                        <div key={m.id} className="glass-card p-6 rounded-2xl flex flex-col group hover:border-primary/40 transition-all bg-card/20 border border-white/5 backdrop-blur-xl">
-                            <div className="flex justify-between items-start mb-10">
-                                <div className="w-12 h-12 bg-white/5 rounded-xl flex items-center justify-center border border-white/10 group-hover:border-primary/30 transition-colors">
-                                    <m.icon className="size-6 text-foreground/40 group-hover:text-primary transition-colors" />
-                                </div>
-                                <div className="text-right">
-                                    <span className="text-[9px] text-foreground/30 block mb-1 uppercase tracking-tighter font-bold">MAX_BORROW_CAPACITY</span>
-                                    <span className="text-lg font-bold text-foreground font-mono italic">${m.limit.toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
-                                </div>
-                            </div>
+                    ).map((m: any) => {
+                        // Dynamic icon mapping based on category or name
+                        let IconComponent = Globe;
+                        if (m.category === 'Gaming') IconComponent = Gamepad2;
+                        if (m.category === 'Technology') IconComponent = Cpu;
+                        if (m.category === 'Fashion') IconComponent = Sparkles;
+                        if (m.category === 'Entertainment') IconComponent = Tv;
 
-                            <div className="mb-8">
-                                <h3 className="text-white font-bold tracking-widest mb-3 uppercase leading-tight">{m.name}</h3>
-                                <div className="inline-flex items-center px-2.5 py-1 rounded-lg bg-primary/10 border border-primary/20">
-                                    <span className="text-[9px] font-bold text-primary tracking-widest uppercase">{m.plan}</span>
+                        return (
+                            <div key={m.id} className="glass-card p-6 rounded-2xl flex flex-col group hover:border-primary/40 transition-all bg-card/20 border border-white/5 backdrop-blur-xl">
+                                <div className="flex justify-between items-start mb-10">
+                                    <div className="w-12 h-12 bg-white/5 rounded-xl flex items-center justify-center border border-white/10 group-hover:border-primary/30 transition-colors">
+                                        <IconComponent className="size-6 text-foreground/40 group-hover:text-primary transition-colors" />
+                                    </div>
+                                    <div className="text-right">
+                                        <span className="text-[9px] text-foreground/30 block mb-1 uppercase tracking-tighter font-bold">MAX_BORROW_CAPACITY</span>
+                                        <span className="text-lg font-bold text-foreground font-mono italic">${Number(m.credit_limit).toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
+                                    </div>
                                 </div>
-                            </div>
 
-                            <Link href="/checkout" className="mt-auto">
-                                <Button className="w-full bg-primary hover:bg-primary/90 text-black py-6 rounded-xl font-bold text-xs tracking-[0.2em] transition-all neon-glow flex items-center justify-center gap-2 uppercase">
-                                    INITIATE PURCHASE
-                                    <ArrowRight className="size-4" />
-                                </Button>
-                            </Link>
-                        </div>
-                    ))}
+                                <div className="mb-8">
+                                    <h3 className="text-white font-bold tracking-widest mb-3 uppercase leading-tight">{m.name}</h3>
+                                    <div className="inline-flex items-center px-2.5 py-1 rounded-lg bg-primary/10 border border-primary/20">
+                                        <span className="text-[9px] font-bold text-primary tracking-widest uppercase">{m.plan_description}</span>
+                                    </div>
+                                </div>
+
+                                <Link href="/checkout" className="mt-auto">
+                                    <Button className="w-full bg-primary hover:bg-primary/90 text-black py-6 rounded-xl font-bold text-xs tracking-[0.2em] transition-all neon-glow flex items-center justify-center gap-2 uppercase">
+                                        INITIATE PURCHASE
+                                        <ArrowRight className="size-4" />
+                                    </Button>
+                                </Link>
+                            </div>
+                        )
+                    })}
                 </div>
 
                 {/* Footer info for this section */}

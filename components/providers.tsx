@@ -47,6 +47,35 @@ export function Providers({ children }: { children: React.ReactNode }) {
               default: { http: ["https://rpc.usc-testnet.creditcoin.network"] },
               public: { http: ["https://rpc.usc-testnet.creditcoin.network"] },
             },
+            blockExplorers: {
+              default: { name: "Explorer", url: "https://explorer.usc-testnet.creditcoin.network" },
+            },
+          },
+          {
+            id: 11155111,
+            name: "Sepolia",
+            network: "sepolia",
+            nativeCurrency: { name: "ETH", symbol: "ETH", decimals: 18 },
+            rpcUrls: {
+              default: { http: ["https://api.zan.top/eth-sepolia"] },
+              public: { http: ["https://api.zan.top/eth-sepolia"] },
+            },
+            blockExplorers: {
+              default: { name: "Etherscan", url: "https://sepolia.etherscan.io" },
+            },
+          },
+          {
+            id: 84532,
+            name: "Base Sepolia",
+            network: "base-sepolia",
+            nativeCurrency: { name: "ETH", symbol: "ETH", decimals: 18 },
+            rpcUrls: {
+              default: { http: ["https://base-sepolia-rpc.publicnode.com"] },
+              public: { http: ["https://base-sepolia-rpc.publicnode.com"] },
+            },
+            blockExplorers: {
+              default: { name: "Basescan", url: "https://sepolia.basescan.org" },
+            },
           },
           {
             id: 1337,

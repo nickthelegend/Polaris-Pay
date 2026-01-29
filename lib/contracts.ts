@@ -68,14 +68,14 @@ export const NETWORKS = {
     SEPOLIA: {
         id: 11155111,
         name: "Eth Sepolia",
-        rpc: "https://ethereum-sepolia-rpc.publicnode.com",
+        rpc: "https://api.zan.top/eth-sepolia",
         explorer: "https://sepolia.etherscan.io",
         icon: "ethereum"
     },
     BASE_SEPOLIA: {
         id: 84532,
         name: "Base Sepolia",
-        rpc: "https://sepolia.base.org",
+        rpc: "https://base-sepolia-rpc.publicnode.com",
         explorer: "https://sepolia.basescan.org",
         icon: "base"
     },

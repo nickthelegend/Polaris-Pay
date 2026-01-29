@@ -26,8 +26,13 @@ export function usePolaris() {
 
         if (useSigner) {
             if (!wallet) throw new Error("Wallet not connected");
-            const currentChainId = parseInt(wallet.chainId.split(':')[1]);
+
+            // Robust chainId parsing (handles "eip155:84532" or "84532")
+            const chainIdPart = wallet.chainId.includes(':') ? wallet.chainId.split(':')[1] : wallet.chainId;
+            const currentChainId = parseInt(chainIdPart);
+
             if (currentChainId !== networkId) {
+                console.log(`[POLARIS] Switching from ${currentChainId} to ${networkId}...`);
                 await wallet.switchChain(networkId);
             }
             const provider = new BrowserProvider(await wallet.getEthereumProvider());
@@ -127,7 +132,7 @@ export function usePolaris() {
             if (!net) throw new Error("Network not found");
             const provider = new JsonRpcProvider(net.rpc);
             const currentBlock = await provider.getBlockNumber();
-            const fromBlock = Math.max(0, currentBlock - 49000);
+            const fromBlock = Math.max(0, currentBlock - 10000);
 
             const events = await vault.queryFilter(filter, fromBlock, 'latest');
 
