@@ -20,9 +20,9 @@ export function Providers({ children }: { children: React.ReactNode }) {
           }
         },
         defaultChain: {
-          id: 102033,
-          name: "Creditcoin USC Testnet",
-          network: "usc-testnet",
+          id: 102036,
+          name: "Creditcoin USC Testnet 2",
+          network: "usc-testnet-2",
           nativeCurrency: {
             name: "tCTC",
             symbol: "tCTC",
@@ -30,25 +30,25 @@ export function Providers({ children }: { children: React.ReactNode }) {
           },
           rpcUrls: {
             default: {
-              http: ["https://rpc.usc-testnet.creditcoin.network"],
+              http: ["https://rpc.usc-testnet2.creditcoin.network"],
             },
             public: {
-              http: ["https://rpc.usc-testnet.creditcoin.network"],
+              http: ["https://rpc.usc-testnet2.creditcoin.network"],
             },
           },
         },
         supportedChains: [
           {
-            id: 102033,
-            name: "Creditcoin USC Testnet",
-            network: "usc-testnet",
+            id: 102036,
+            name: "Creditcoin USC Testnet 2",
+            network: "usc-testnet-2",
             nativeCurrency: { name: "tCTC", symbol: "tCTC", decimals: 18 },
             rpcUrls: {
-              default: { http: ["https://rpc.usc-testnet.creditcoin.network"] },
-              public: { http: ["https://rpc.usc-testnet.creditcoin.network"] },
+              default: { http: ["https://rpc.usc-testnet2.creditcoin.network"] },
+              public: { http: ["https://rpc.usc-testnet2.creditcoin.network"] },
             },
             blockExplorers: {
-              default: { name: "Explorer", url: "https://explorer.usc-testnet.creditcoin.network" },
+              default: { name: "Explorer", url: "https://explorer.usc-testnet2.creditcoin.network" },
             },
           },
           {
