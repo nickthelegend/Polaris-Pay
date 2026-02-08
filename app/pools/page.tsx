@@ -101,7 +101,7 @@ export default function PoolsPage() {
 
     // Bridge State
     const [isSyncOpen, setIsSyncOpen] = useState(false);
-    const [syncQueryId, setSyncQueryId] = useState("");
+    const [syncProofData, setSyncProofData] = useState("");
 
     const [isWithdrawOpen, setIsWithdrawOpen] = useState(false);
     const [withdrawAmount, setWithdrawAmount] = useState("50");
@@ -226,15 +226,16 @@ export default function PoolsPage() {
 
     const executeSyncProof = async () => {
         try {
-            toast.info("Submitting proof to Hub...");
-            await addLiquidityFromProof(syncQueryId);
-            toast.success("Liquidity Synced!");
+            toast.info("Submitting V2 proof to Hub...");
+            const proof = JSON.parse(syncProofData);
+            await addLiquidityFromProof(proof);
+            toast.success("Liquidity Synced with V2 Native Verification!");
             setIsSyncOpen(false);
-            setSyncQueryId("");
+            setSyncProofData("");
             refreshData();
         } catch (error) {
             console.error("Sync failed:", error);
-            toast.error("Sync failed.");
+            toast.error("Sync failed. Ensure proof JSON is valid.");
         }
     };
 
@@ -579,13 +580,12 @@ export default function PoolsPage() {
                         <span className="text-[10px] text-white/40 uppercase tracking-widest">MANUAL_ORACLE_SYNC</span>
                     </div>
                     <div className="p-8 flex flex-col gap-6">
-                        <DialogTitle className="text-xl font-bold uppercase tracking-tighter">Submit Proof QueryID</DialogTitle>
-                        <input
-                            type="text"
-                            value={syncQueryId}
-                            onChange={(e) => setSyncQueryId(e.target.value)}
-                            className="w-full bg-white/5 border border-white/10 rounded-sm py-4 px-4 text-xs font-mono text-white focus:outline-none"
-                            placeholder="0x..."
+                        <DialogTitle className="text-xl font-bold uppercase tracking-tighter">Submit V2 Proof JSON</DialogTitle>
+                        <textarea
+                            value={syncProofData}
+                            onChange={(e) => setSyncProofData(e.target.value)}
+                            className="w-full bg-white/5 border border-white/10 rounded-sm py-4 px-4 text-xs font-mono text-white focus:outline-none min-h-[200px]"
+                            placeholder='{ "chainKey": 1, "blockHeight": 123, ... }'
                         />
                         <button onClick={executeSyncProof} className="w-full bg-white text-black py-4 font-black">SYNC</button>
                     </div>

@@ -70,11 +70,23 @@ export function usePolaris() {
         }
     };
 
-    const addLiquidityFromProof = async (queryId: string) => {
+    const addLiquidityFromProof = async (proof: {
+        chainKey: string | number;
+        blockHeight: string | number;
+        encodedTransaction: string;
+        merkleProof: any;
+        continuityProof: any;
+    }) => {
         setLoading(true);
         try {
             const poolManager = await getContract(CONTRACTS.MASTER.POOL_MANAGER, ABIS.PoolManager, NETWORKS.USC.id);
-            const tx = await poolManager.addLiquidityFromProof(queryId);
+            const tx = await poolManager.addLiquidityFromProof(
+                proof.chainKey,
+                proof.blockHeight,
+                proof.encodedTransaction,
+                proof.merkleProof,
+                proof.continuityProof
+            );
             const receipt = await tx.wait();
             setTxHash(receipt.hash);
             return receipt;
