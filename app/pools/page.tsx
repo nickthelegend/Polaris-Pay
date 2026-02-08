@@ -107,6 +107,7 @@ export default function PoolsPage() {
     const [isWithdrawOpen, setIsWithdrawOpen] = useState(false);
     const [withdrawAmount, setWithdrawAmount] = useState("50");
     const [withdrawTarget, setWithdrawTarget] = useState<{ token: string, symbol: string } | null>(null);
+    const [lastDepositTx, setLastDepositTx] = useState<string | null>(null);
 
     const { data: poolsData } = useSWR("/api/pools", fetcher)
     const pools = poolsData?.pools ?? []
@@ -189,13 +190,81 @@ export default function PoolsPage() {
         if (!depositTarget) return;
         try {
             toast.info(`Initiating ${depositAmount} ${depositTarget.symbol} deposit on ${NETWORKS[depositTarget.chainKey].name}...`);
-            await depositLiquidity(depositTarget.token, depositAmount, NETWORKS[depositTarget.chainKey].id);
-            toast.success("Deposit successful! Monitoring for cross-chain sync...");
-            setIsDepositOpen(false);
+            const receipt = await depositLiquidity(depositTarget.token, depositAmount, NETWORKS[depositTarget.chainKey].id);
+            toast.success("Deposit successful! Auto-syncing credit limit...");
+
+            setLastDepositTx(receipt.hash);
+            setLastDepositTx(receipt.hash);
+            setIsDepositOpen(false); // Close Modal immediately
+
+            // 1. Push to Database (Fire & Forget)
+            try {
+                await fetch("/api/proof", {
+                    method: "POST",
+                    body: JSON.stringify({ txHash: receipt.hash, chainKey: NETWORKS[depositTarget.chainKey].id })
+                });
+                toast.success("Deposit recorded. Syncing in background...");
+            } catch (e) {
+                console.warn("Failed to push to DB", e);
+            }
+
+            // 2. Trigger Auto-Sync (Polling)
+            autoSyncProof(receipt.hash, depositTarget.chainKey);
+
             refreshData();
         } catch (error) {
             console.error("Deposit error:", error);
             toast.error("Deposit failed. Check console.");
+        }
+    };
+
+    const autoSyncProof = async (txHash: string, sourceChainKey: keyof typeof NETWORKS) => {
+        try {
+            // Polling Logic
+            let attempts = 0;
+            const maxAttempts = 20; // 100 seconds
+            let proof = null;
+
+            toast.info("⏳ Syncing Protocol State... (You can browse freely)");
+
+            while (attempts < maxAttempts) {
+                try {
+                    const chainKeyId = NETWORKS[sourceChainKey].id;
+                    // This GET now hits our internal DB first
+                    const response = await fetch(`/api/proof?txHash=${txHash}&chainKey=${chainKeyId}`);
+                    const data = await response.json();
+
+                    if (data.merkleRoot) {
+                        // Proof Found!
+                        const { ProofUtils } = await import("@/lib/proof-utils");
+                        proof = ProofUtils.formatProof(data);
+                        break;
+                    }
+                } catch (e) { }
+
+                await new Promise(r => setTimeout(r, 5000)); // Poll every 5s
+                attempts++;
+            }
+
+            if (!proof) throw new Error("Sync timed out. Please try Manual Sync.");
+
+            // 2. Switch to Master Hub (USC) if not already there
+            if (Number(chainId) !== NETWORKS.USC.id) {
+                toast.info("Proof Ready! Switch to Hub to finalize.");
+            }
+
+            toast.info("Submitting Proof to Master Chain...");
+            await addLiquidityFromProof(proof);
+
+            toast.success("✅ Protocol Synced!");
+            setSelectedView("USC");
+            refreshData();
+        } catch (error: any) {
+            console.error("Auto-sync failed:", error);
+            // Don't open manual modal aggressively, just notify
+            toast.warn("Sync requires manual approval.");
+            setSyncProofData(txHash);
+            // allow user to click manual sync
         }
     };
 
@@ -343,6 +412,16 @@ export default function PoolsPage() {
                             >
                                 Get_Credit_Line
                             </button>
+
+                            {/* Sync Warning */}
+                            {(Number(usdcLPBalance) > 0 || Number(usdtLPBalance) > 0) && Number(creditLimit) === 0 && (
+                                <div className="mt-2 bg-red-500/10 border border-red-500/20 p-2 rounded-sm flex items-center gap-2 animate-pulse cursor-pointer" onClick={() => setIsSyncOpen(true)}>
+                                    <RefreshCw className="w-3 h-3 text-red-400" />
+                                    <span className="text-[9px] font-bold text-red-400 uppercase tracking-widest">
+                                        SYNC_REQUIRED_FOR_CREDIT_LIMIT
+                                    </span>
+                                </div>
+                            )}
                         </div>
                         <BridgeStatus address={address} />
                     </div>

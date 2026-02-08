@@ -5,6 +5,32 @@ import { NETWORKS } from "@/lib/contracts";
 
 const PROVER_API_URL = "https://proof-gen-api.usc-testnet2.creditcoin.network";
 
+// DB Access
+// Dynamic import to avoid client-side bundling issues if referenced elsewhere
+const getDb = async () => (await import("@/lib/db"));
+
+export async function POST(req: NextRequest) {
+    try {
+        const body = await req.json();
+        const { txHash, chainKey } = body;
+
+        if (!txHash) return NextResponse.json({ error: "Missing txHash" }, { status: 400 });
+
+        const db = await getDb();
+        db.saveDeposit({
+            txHash,
+            chainKey: Number(chainKey) || 1,
+            status: "PENDING",
+            createdAt: Date.now()
+        });
+
+        console.log(`[DB] Saved deposit pending proof: ${txHash}`);
+        return NextResponse.json({ success: true, message: "Deposit queued" });
+    } catch (e: any) {
+        return NextResponse.json({ error: e.message }, { status: 500 });
+    }
+}
+
 export async function GET(request: NextRequest) {
     const searchParams = request.nextUrl.searchParams;
     const txHash = searchParams.get("txHash");
@@ -55,15 +81,21 @@ export async function GET(request: NextRequest) {
     }
 
     try {
+        // Check DB first
+        const db = await getDb();
+        const existing = db.getDeposit(txHash);
+
+        if (existing?.proof) {
+            console.log(`[DB] Returning cached proof for ${txHash}`);
+            return NextResponse.json(existing.proof);
+        }
+
         console.log(`[PROOF-API] Requesting proof for ${txHash} on chain ${chainKey} from ${PROVER_API_URL}`);
 
         const ccProvider = new ethers.JsonRpcProvider(NETWORKS.USC.rpc);
         const sourceProvider = new ethers.JsonRpcProvider(sourceRpcUrl);
 
         // Call Gluwa Prover
-        // Note: This waits for attestation (could timeout Vercel function)
-        // Ideally, frontend polls this or we use a queue.
-        // For "End-to-End Verification" demo, we hope attestation is fast or use existing tx.
         const proof = await generateProofFor(
             txHash,
             chainKey,
@@ -71,6 +103,15 @@ export async function GET(request: NextRequest) {
             ccProvider,
             sourceProvider
         );
+
+        // Save to DB
+        db.saveDeposit({
+            txHash,
+            chainKey,
+            status: "ProofGenerated",
+            proof,
+            createdAt: Date.now()
+        });
 
         return NextResponse.json(proof);
     } catch (error: any) {
