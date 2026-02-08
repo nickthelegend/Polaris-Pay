@@ -13,25 +13,36 @@ export function usePolaris() {
 
     const getSpokeConfig = (networkId: number) => {
         if (networkId === NETWORKS.SEPOLIA.id) return CONTRACTS.SPOKES.SEPOLIA;
-        if (networkId === NETWORKS.BASE_SEPOLIA.id) return CONTRACTS.SPOKES.BASE_SEPOLIA;
+        // if (networkId === NETWORKS.BASE_SEPOLIA.id) return CONTRACTS.SPOKES.BASE_SEPOLIA;
         if (networkId === NETWORKS.GANACHE.id) return CONTRACTS.SPOKES.GANACHE;
+        // Check if we are on Hedera (296)
+        if (networkId === NETWORKS.HEDERA?.id) return CONTRACTS.SPOKES.HEDERA;
         return CONTRACTS.SOURCE; // Fallback
     };
 
-    const getContract = useCallback(async (address: string, abi: any, networkId: number, useSigner = true) => {
-        const net = Object.values(NETWORKS).find(n => n.id === networkId);
-        if (!net) throw new Error("Network config not found");
+    const getMasterConfig = () => {
+        const isLocal = wallet?.chainId?.toString().includes('1337');
+        return isLocal
+            ? { config: CONTRACTS.SPOKES.GANACHE, id: NETWORKS.GANACHE.id }
+            : { config: CONTRACTS.MASTER, id: NETWORKS.USC.id };
+    };
 
-        const actualAbi = abi.abi || abi; // Handle both full artifact and just ABI array
+    const getContract = useCallback(async (address: string, abi: any, networkId: number, useSigner = true) => {
+        // ... existing getContract logic ...
+        const net = Object.values(NETWORKS).find(n => n.id === networkId);
+        if (!net) throw new Error(`Network config not found for ID ${networkId}`);
+
+        const actualAbi = abi.abi || abi;
 
         if (useSigner) {
             if (!wallet) throw new Error("Wallet not connected");
 
-            // Robust chainId parsing (handles "eip155:84532" or "84532")
             const chainIdPart = wallet.chainId.includes(':') ? wallet.chainId.split(':')[1] : wallet.chainId;
             const currentChainId = parseInt(chainIdPart);
 
             if (currentChainId !== networkId) {
+                // Only switch if we are NOT targeting the Master chain from a Spoke 
+                // actually, for Master interactions like AddLiquidity, we MUST be on Master.
                 console.log(`[POLARIS] Switching from ${currentChainId} to ${networkId}...`);
                 await wallet.switchChain(networkId);
             }
@@ -39,6 +50,7 @@ export function usePolaris() {
             const signer = await provider.getSigner();
             return new Contract(address, actualAbi, signer);
         } else {
+            // For read-only, use the RPC defined in NETWORKS
             const provider = new JsonRpcProvider(net.rpc);
             return new Contract(address, actualAbi, provider);
         }
@@ -81,7 +93,8 @@ export function usePolaris() {
     }) => {
         setLoading(true);
         try {
-            const poolManager = await getContract(CONTRACTS.MASTER.POOL_MANAGER, ABIS.PoolManager, NETWORKS.USC.id);
+            const { config, id } = getMasterConfig();
+            const poolManager = await getContract(config.POOL_MANAGER, ABIS.PoolManager, id);
             const tx = await poolManager.addLiquidityFromProof(
                 proof.chainKey,
                 proof.blockHeight,
@@ -104,7 +117,8 @@ export function usePolaris() {
 
     const getPoolLiquidity = async (tokenAddress: string) => {
         try {
-            const poolManager = await getContract(CONTRACTS.MASTER.POOL_MANAGER, ABIS.PoolManager, NETWORKS.USC.id, false);
+            const { config, id } = getMasterConfig();
+            const poolManager = await getContract(config.POOL_MANAGER, ABIS.PoolManager, id, false);
             const liquidity = await poolManager.getPoolLiquidity(tokenAddress);
             return formatUnits(liquidity, 18);
         } catch (error) {
@@ -128,7 +142,8 @@ export function usePolaris() {
     const getLPBalance = async (tokenAddress: string) => {
         try {
             if (!wallet?.address) return "0";
-            const poolManager = await getContract(CONTRACTS.MASTER.POOL_MANAGER, ABIS.PoolManager, NETWORKS.USC.id, false);
+            const { config, id } = getMasterConfig();
+            const poolManager = await getContract(config.POOL_MANAGER, ABIS.PoolManager, id, false);
             const balance = await poolManager.lpBalance(wallet.address, tokenAddress);
             return formatUnits(balance, 18);
         } catch (error) {
@@ -176,7 +191,8 @@ export function usePolaris() {
     const getScore = async () => {
         try {
             if (!wallet?.address) return "0";
-            const scoreManager = await getContract(CONTRACTS.MASTER.SCORE_MANAGER, ABIS.ScoreManager, NETWORKS.USC.id, false);
+            const { config, id } = getMasterConfig();
+            const scoreManager = await getContract(config.SCORE_MANAGER, ABIS.ScoreManager, id, false);
             const score = await scoreManager.getScore(wallet.address);
             return score.toString();
         } catch (error) {
@@ -188,7 +204,8 @@ export function usePolaris() {
     const getCreditLimit = async () => {
         try {
             if (!wallet?.address) return "0";
-            const scoreManager = await getContract(CONTRACTS.MASTER.SCORE_MANAGER, ABIS.ScoreManager, NETWORKS.USC.id, false);
+            const { config, id } = getMasterConfig();
+            const scoreManager = await getContract(config.SCORE_MANAGER, ABIS.ScoreManager, id, false);
             const limit = await scoreManager.getCreditLimit(wallet.address);
             return formatUnits(limit, 18);
         } catch (error) {
@@ -200,7 +217,8 @@ export function usePolaris() {
     const createLoan = async (amount: string, tokenAddress: string) => {
         setLoading(true);
         try {
-            const loanEngine = await getContract(CONTRACTS.MASTER.LOAN_ENGINE, ABIS.LoanEngine, NETWORKS.USC.id);
+            const { config, id } = getMasterConfig();
+            const loanEngine = await getContract(config.LOAN_ENGINE, ABIS.LoanEngine, id);
             const amountWei = parseUnits(amount, 18);
 
             const tx = await loanEngine.createLoan(wallet?.address, amountWei, tokenAddress, { gasLimit: 5000000 });
@@ -218,7 +236,8 @@ export function usePolaris() {
     const repayLoan = async (loanId: number, amount: string) => {
         setLoading(true);
         try {
-            const loanEngine = await getContract(CONTRACTS.MASTER.LOAN_ENGINE, ABIS.LoanEngine, NETWORKS.USC.id);
+            const { config, id } = getMasterConfig();
+            const loanEngine = await getContract(config.LOAN_ENGINE, ABIS.LoanEngine, id);
             const amountWei = parseUnits(amount, 18);
 
             const tx = await loanEngine.repay(loanId, amountWei);
@@ -236,7 +255,8 @@ export function usePolaris() {
     const getLoans = async () => {
         try {
             if (!wallet?.address) return [];
-            const loanEngine = await getContract(CONTRACTS.MASTER.LOAN_ENGINE, ABIS.LoanEngine, NETWORKS.USC.id, false);
+            const { config, id } = getMasterConfig();
+            const loanEngine = await getContract(config.LOAN_ENGINE, ABIS.LoanEngine, id, false);
             const count = await loanEngine.loanCount();
             const loans = [];
 
@@ -263,7 +283,8 @@ export function usePolaris() {
     const requestWithdrawal = async (tokenAddress: string, amount: string, destChainId: number) => {
         setLoading(true);
         try {
-            const poolManager = await getContract(CONTRACTS.MASTER.POOL_MANAGER, ABIS.PoolManager, NETWORKS.USC.id);
+            const { config, id } = getMasterConfig();
+            const poolManager = await getContract(config.POOL_MANAGER, ABIS.PoolManager, id);
             const amountWei = parseUnits(amount, 18);
 
             const tx = await poolManager.requestWithdrawal(tokenAddress, amountWei, destChainId);

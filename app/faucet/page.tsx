@@ -1,17 +1,18 @@
 "use client"
-
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { usePrivy, useWallets } from "@privy-io/react-auth"
-import { ethers } from "ethers"
+import { ethers, formatUnits } from "ethers"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { CONTRACTS, NETWORKS, ABIS } from "@/lib/contracts"
-import { Loader2, CheckCircle2, AlertCircle } from "lucide-react"
+import { Loader2, CheckCircle2, AlertCircle, RefreshCw } from "lucide-react"
+import { usePolaris } from "@/hooks/use-polaris"
 
 export default function FaucetPage() {
     const { authenticated } = usePrivy()
     const { wallets } = useWallets()
+    const { getTokenBalance } = usePolaris()
     const [network, setNetwork] = useState<string>("SEPOLIA")
     const [token, setToken] = useState<string>("USDC")
     const [amount, setAmount] = useState<string>("1000")
@@ -19,13 +20,43 @@ export default function FaucetPage() {
     const [txHash, setTxHash] = useState<string>("")
     const [errorMsg, setErrorMsg] = useState<string>("")
 
+    // Balances
+    const [balances, setBalances] = useState({ usdc: "0", usdt: "0" })
+    const [loadingBalances, setLoadingBalances] = useState(false)
+
     const wallet = wallets[0]
+
+    const fetchBalances = async () => {
+        if (!wallet || !authenticated) return;
+        setLoadingBalances(true);
+        try {
+            // @ts-ignore
+            const netId = NETWORKS[network]?.id;
+            // @ts-ignore
+            const spokeConfig = CONTRACTS.SPOKES[network];
+
+            if (netId && spokeConfig) {
+                const usdc = await getTokenBalance(spokeConfig.USDC, netId);
+                const usdt = await getTokenBalance(spokeConfig.USDT, netId);
+                setBalances({ usdc: parseFloat(usdc).toFixed(2), usdt: parseFloat(usdt).toFixed(2) });
+            }
+        } catch (e) {
+            console.error("Failed to fetch balances:", e);
+        } finally {
+            setLoadingBalances(false);
+        }
+    };
+
+    useEffect(() => {
+        fetchBalances();
+    }, [network, authenticated, wallet]);
 
     const handleMint = async () => {
         if (!wallet) return
         setStatus("loading")
         setErrorMsg("")
         setTxHash("")
+        const actualAbi = (ABIS.MockERC20 as any).abi || ABIS.MockERC20;
 
         try {
             // Switch chain if needed
@@ -35,11 +66,9 @@ export default function FaucetPage() {
                 await wallet.switchChain(targetChainId)
             }
 
-            // Get provider
             const provider = new ethers.BrowserProvider(await wallet.getEthereumProvider())
             const signer = await provider.getSigner()
 
-            // Get contract address based on network/token
             // @ts-ignore
             const networkConfig = CONTRACTS.SPOKES[network]
             if (!networkConfig) throw new Error("Invalid network config")
@@ -47,16 +76,16 @@ export default function FaucetPage() {
             const tokenAddress = networkConfig[token]
             if (!tokenAddress) throw new Error("Invalid token address")
 
-            const contract = new ethers.Contract(tokenAddress, ABIS.MockERC20, signer)
+            const contract = new ethers.Contract(tokenAddress, actualAbi, signer)
 
             // Mint
             const parsedAmount = ethers.parseUnits(amount, 6) // USDC/USDT use 6 decimals
             const tx = await contract.mint(wallet.address, parsedAmount)
-
             setTxHash(tx.hash)
             await tx.wait()
 
             setStatus("success")
+            fetchBalances(); // Refresh balances after mint
         } catch (e: any) {
             console.error(e)
             setStatus("error")
@@ -68,10 +97,30 @@ export default function FaucetPage() {
         <div className="container max-w-lg py-10">
             <Card>
                 <CardHeader>
-                    <CardTitle>Testnet Faucet 🚰</CardTitle>
+                    <CardTitle className="flex justify-between items-center">
+                        Testnet Faucet 🚰
+                        <Button variant="ghost" size="sm" onClick={fetchBalances} disabled={loadingBalances}>
+                            <RefreshCw className={`h-4 w-4 ${loadingBalances ? 'animate-spin' : ''}`} />
+                        </Button>
+                    </CardTitle>
                     <CardDescription>Mint Mock USDC/USDT for testing on Sepolia/Hedera.</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
+
+                    {/* Balances Card */}
+                    {authenticated && (
+                        <div className="bg-muted/50 p-4 rounded-lg space-y-2">
+                            <p className="text-xs font-semibold uppercase text-muted-foreground">Your {network} Balances</p>
+                            <div className="flex justify-between items-center text-sm">
+                                <span>USDC</span>
+                                <span className="font-mono font-medium">{balances.usdc}</span>
+                            </div>
+                            <div className="flex justify-between items-center text-sm">
+                                <span>USDT</span>
+                                <span className="font-mono font-medium">{balances.usdt}</span>
+                            </div>
+                        </div>
+                    )}
 
                     <div className="space-y-2">
                         <label className="text-sm font-medium">Network</label>
@@ -117,7 +166,7 @@ export default function FaucetPage() {
                     {status === "error" && (
                         <div className="flex items-center gap-2 p-3 text-sm text-red-500 bg-red-500/10 rounded-md">
                             <AlertCircle className="h-4 w-4" />
-                            {errorMsg}
+                            {errorMsg?.slice(0, 50)}...
                         </div>
                     )}
 
