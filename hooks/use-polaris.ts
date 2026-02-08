@@ -62,7 +62,39 @@ export function usePolaris() {
             const config = getSpokeConfig(networkId);
             const vault = await getContract(config.LIQUIDITY_VAULT, ABIS.LiquidityVault, networkId);
             const token = await getContract(tokenAddress, ABIS.MockERC20, networkId);
-            const amountWei = parseUnits(amount, 18);
+
+            let decimals = 18;
+            try {
+                const d = await token.decimals();
+                decimals = Number(d);
+            } catch (e) {
+                console.warn("Could not fetch decimals, defaulting to 18");
+            }
+
+            const amountWei = parseUnits(amount, decimals);
+
+            // Check Balance & Auto-Mint on Testnet
+            if (wallet?.address) {
+                const balance = await token.balanceOf(wallet.address);
+                if (balance < amountWei) {
+                    const isTestnet = networkId === NETWORKS.SEPOLIA.id || networkId === NETWORKS.GANACHE.id;
+                    if (isTestnet) {
+                        console.log(`[POLARIS] Insufficient balance (${formatUnits(balance, decimals)}). Auto-minting...`);
+                        try {
+                            // Mint enough for this tx + buffer
+                            const mintAmount = amountWei * BigInt(10);
+                            const mintTx = await token.mint(wallet.address, mintAmount);
+                            await mintTx.wait();
+                            console.log("[POLARIS] Auto-mint successful.");
+                        } catch (mintErr) {
+                            console.error("Auto-mint failed", mintErr);
+                            throw new Error("Insufficient balance and faucet failed.");
+                        }
+                    } else {
+                        throw new Error(`Insufficient Balance. You have ${formatUnits(balance, decimals)} ${await token.symbol()}`);
+                    }
+                }
+            }
 
             console.log(`[POLARIS] Approving token on chain ${networkId}...`);
             const approveTx = await token.approve(config.LIQUIDITY_VAULT, amountWei);
@@ -120,7 +152,13 @@ export function usePolaris() {
             const { config, id } = getMasterConfig();
             const poolManager = await getContract(config.POOL_MANAGER, ABIS.PoolManager, id, false);
             const liquidity = await poolManager.getPoolLiquidity(tokenAddress);
-            return formatUnits(liquidity, 18);
+
+            // Get decimals
+            const token = await getContract(tokenAddress, ABIS.MockERC20, id, false);
+            let decimals = 18;
+            try { decimals = Number(await token.decimals()); } catch (e) { }
+
+            return formatUnits(liquidity, decimals);
         } catch (error) {
             console.error("Fetch liquidity failed:", error);
             return "0";
@@ -132,7 +170,11 @@ export function usePolaris() {
             if (!wallet?.address) return "0";
             const token = await getContract(tokenAddress, ABIS.MockERC20, networkId, false);
             const balance = await token.balanceOf(wallet.address);
-            return formatUnits(balance, 18);
+
+            let decimals = 18;
+            try { decimals = Number(await token.decimals()); } catch (e) { }
+
+            return formatUnits(balance, decimals);
         } catch (error) {
             console.error("Fetch balance failed:", error);
             return "0";
@@ -145,7 +187,13 @@ export function usePolaris() {
             const { config, id } = getMasterConfig();
             const poolManager = await getContract(config.POOL_MANAGER, ABIS.PoolManager, id, false);
             const balance = await poolManager.lpBalance(wallet.address, tokenAddress);
-            return formatUnits(balance, 18);
+
+            // Get decimals
+            const token = await getContract(tokenAddress, ABIS.MockERC20, id, false);
+            let decimals = 18;
+            try { decimals = Number(await token.decimals()); } catch (e) { }
+
+            return formatUnits(balance, decimals);
         } catch (error) {
             console.error("Fetch LP balance failed:", error);
             return "0";
@@ -156,6 +204,12 @@ export function usePolaris() {
         try {
             const config = getSpokeConfig(networkId);
             const vault = await getContract(config.LIQUIDITY_VAULT, ABIS.LiquidityVault, networkId, false);
+
+            // Get decimals
+            const token = await getContract(tokenAddress, ABIS.MockERC20, networkId, false);
+            let decimals = 18;
+            try { decimals = Number(await token.decimals()); } catch (e) { }
+
             const filter = vault.filters.LiquidityDeposited(null, tokenAddress);
 
             // Limit block range to avoid RPC errors
@@ -179,8 +233,8 @@ export function usePolaris() {
             });
 
             return {
-                total: formatUnits(totalLiquidity, 18),
-                user: formatUnits(userLiquidity, 18)
+                total: formatUnits(totalLiquidity, decimals),
+                user: formatUnits(userLiquidity, decimals)
             };
         } catch (error) {
             console.error("Fetch local vault stats failed:", error);
@@ -219,7 +273,15 @@ export function usePolaris() {
         try {
             const { config, id } = getMasterConfig();
             const loanEngine = await getContract(config.LOAN_ENGINE, ABIS.LoanEngine, id);
-            const amountWei = parseUnits(amount, 18);
+
+            // Get decimals of the POOL token we are borrowing? 
+            // Logic: createLoan(user, amount, poolToken)
+            // Amount is in poolToken decimals.
+            const token = await getContract(tokenAddress, ABIS.MockERC20, id, false);
+            let decimals = 18;
+            try { decimals = Number(await token.decimals()); } catch (e) { }
+
+            const amountWei = parseUnits(amount, decimals);
 
             const tx = await loanEngine.createLoan(wallet?.address, amountWei, tokenAddress, { gasLimit: 5000000 });
             const receipt = await tx.wait();
@@ -238,7 +300,18 @@ export function usePolaris() {
         try {
             const { config, id } = getMasterConfig();
             const loanEngine = await getContract(config.LOAN_ENGINE, ABIS.LoanEngine, id);
-            const amountWei = parseUnits(amount, 18);
+
+            // Need to know WHO we are repaying to know decimals.
+            // But we only have ID. 
+            // We fetch the loan first.
+            const loan = await loanEngine.loans(loanId);
+            const tokenAddress = loan.poolToken;
+
+            const token = await getContract(tokenAddress, ABIS.MockERC20, id, false);
+            let decimals = 18;
+            try { decimals = Number(await token.decimals()); } catch (e) { }
+
+            const amountWei = parseUnits(amount, decimals);
 
             const tx = await loanEngine.repay(loanId, amountWei);
             const receipt = await tx.wait();
@@ -299,6 +372,33 @@ export function usePolaris() {
         }
     };
 
+    const mintTokens = async (tokenAddress: string, amount: string, networkId: number) => {
+        setLoading(true);
+        try {
+            const token = await getContract(tokenAddress, ABIS.MockERC20, networkId);
+
+            let decimals = 18;
+            try {
+                const d = await token.decimals();
+                decimals = Number(d);
+            } catch (e) {
+                console.warn("Could not fetch decimals, defaulting to 18");
+            }
+
+            const amountWei = parseUnits(amount, decimals);
+
+            console.log(`[POLARIS] Minting tokens on chain ${networkId}...`);
+            const tx = await token.mint(wallet?.address, amountWei);
+            const receipt = await tx.wait();
+            return receipt;
+        } catch (error) {
+            console.error("Mint failed:", error);
+            throw error;
+        } finally {
+            setLoading(false);
+        }
+    };
+
     return {
         loading,
         txHash,
@@ -314,6 +414,7 @@ export function usePolaris() {
         repayLoan,
         getLoans,
         requestWithdrawal,
+        mintTokens,
         authenticated,
         address: wallet?.address,
         chainId: wallet?.chainId

@@ -70,6 +70,7 @@ export default function PoolsPage() {
         createLoan,
         repayLoan,
         getLoans,
+        mintTokens,
         address
     } = usePolaris();
 
@@ -259,6 +260,19 @@ export default function PoolsPage() {
         } catch (error) {
             console.error("Withdrawal failed:", error);
             toast.error("Withdrawal failed.");
+        }
+    };
+
+    const executeMint = async () => {
+        if (!depositTarget) return;
+        try {
+            toast.info(`Minting 1000 ${depositTarget.symbol}...`);
+            await mintTokens(depositTarget.token, "1000", NETWORKS[depositTarget.chainKey].id);
+            toast.success("Tokens minted successfully!");
+            refreshData();
+        } catch (error) {
+            console.error("Mint failed:", error);
+            toast.error("Mint failed.");
         }
     };
 
@@ -539,13 +553,21 @@ export default function PoolsPage() {
                             className="w-full bg-white/5 border border-white/10 rounded-sm py-4 px-6 text-2xl font-black text-white focus:outline-none focus:ring-1 focus:ring-primary"
                             placeholder="0.00"
                         />
-                        <button
-                            onClick={executeDeposit}
-                            disabled={loading}
-                            className="w-full bg-primary hover:bg-primary/80 text-primary-foreground py-4 rounded-sm font-black text-xs uppercase cursor-pointer"
-                        >
-                            {loading ? "INITIALIZING..." : "CONFIRM DEPOSIT"}
-                        </button>
+                        <div className="flex flex-col gap-4">
+                            <button
+                                onClick={executeDeposit}
+                                disabled={loading}
+                                className="w-full bg-primary hover:bg-primary/80 text-primary-foreground py-4 rounded-sm font-black text-xs uppercase cursor-pointer"
+                            >
+                                {loading ? "INITIALIZING..." : "CONFIRM DEPOSIT"}
+                            </button>
+
+                            <div className="flex justify-center">
+                                <span className="text-[10px] text-white/40 uppercase cursor-pointer hover:text-white transition-colors border-b border-transparent hover:border-white/40" onClick={executeMint}>
+                                    [ TESTNET FAUCET: MINT 1000 TOKENS ]
+                                </span>
+                            </div>
+                        </div>
                     </div>
                 </DialogContent>
             </Dialog>
