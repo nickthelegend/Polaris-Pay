@@ -14,7 +14,10 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({ error: "Missing txHash" }, { status: 400 });
     }
 
-    const chainKey = chainKeyParam ? parseInt(chainKeyParam, 10) : 1; // Default to Sepolia (1)
+    let chainKey = chainKeyParam ? parseInt(chainKeyParam, 10) : 1; // Default to Sepolia (1)
+
+    // Map Standard Chain IDs to Prover Keys
+    if (chainKey === 11155111) chainKey = 1; // Sepolia
 
     // Handle Localnet (Mock Proof)
     if (chainKey === 1337) {
@@ -43,11 +46,11 @@ export async function GET(request: NextRequest) {
 
     // Choose Source RPC
     let sourceRpcUrl = NETWORKS.SEPOLIA.rpc;
+
     if (chainKey === 296) { // Hedera Chain ID
-        // TODO: Verify if Prover supports Hedera KEY. For now assume it doesn't or map key.
-        // If user provided mapped key in params, use it.
-        // If we don't support Hedera Proving yet, return error or mock.
-        // User said "dont use mock", so we try. But if API fails, we return error.
+        console.warn("[PROOF-API] Hedera Proof Generation requested. Use '1337' for Mock if Prover unavailable.");
+        // TODO: Update when Hedera Prover is live at 'https://proof-gen-api.hedera.creditcoin.network'
+        // For now, we try to use the Hedera RPC but likely the Prover URL needs to change.
         sourceRpcUrl = NETWORKS.HEDERA.rpc;
     }
 
