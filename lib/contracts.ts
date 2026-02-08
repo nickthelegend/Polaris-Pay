@@ -60,9 +60,9 @@ export const ABIS = {
 
 export const NETWORKS = {
     USC: {
-        id: 102036,
+        id: 102033,
         name: "USC Hub V2",
-        rpc: "https://rpc.usc-testnet2.creditcoin.network",
+        rpc: "https://rpc.usc-testnet.creditcoin.network",
         explorer: "https://testnet.creditcoin.org",
         icon: "creditcoin"
     },

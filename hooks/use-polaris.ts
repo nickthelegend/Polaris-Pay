@@ -217,9 +217,9 @@ export function usePolaris() {
             if (!net) throw new Error("Network not found");
             const provider = new JsonRpcProvider(net.rpc);
             const currentBlock = await provider.getBlockNumber();
-            const fromBlock = Math.max(0, currentBlock - 10000);
+            const fromBlock = Math.max(0, currentBlock - 2000);
 
-            const events = await vault.queryFilter(filter, fromBlock, 'latest');
+            const events = await vault.queryFilter(filter, fromBlock, currentBlock);
 
             let totalLiquidity = BigInt(0);
             let userLiquidity = BigInt(0);

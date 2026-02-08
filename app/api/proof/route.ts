@@ -7,7 +7,8 @@ const PROVER_API_URL = "https://proof-gen-api.usc-testnet2.creditcoin.network";
 
 // DB Access
 // Dynamic import to avoid client-side bundling issues if referenced elsewhere
-const getDb = async () => (await import("@/lib/db"));
+// DB Access
+import { supabase } from "@/lib/supabase";
 
 export async function POST(req: NextRequest) {
     try {
@@ -16,17 +17,23 @@ export async function POST(req: NextRequest) {
 
         if (!txHash) return NextResponse.json({ error: "Missing txHash" }, { status: 400 });
 
-        const db = await getDb();
-        db.saveDeposit({
-            txHash,
-            chainKey: Number(chainKey) || 1,
-            status: "PENDING",
-            createdAt: Date.now()
-        });
+        // Insert into Supabase 'deposits' table
+        // We use upsert to handle potential duplicates idempotently
+        const { error } = await supabase
+            .from('deposits')
+            .upsert({
+                tx_hash: txHash,
+                chain_key: Number(chainKey) || 1,
+                status: 'PENDING',
+                created_at: new Date().toISOString()
+            }, { onConflict: 'tx_hash' });
 
-        console.log(`[DB] Saved deposit pending proof: ${txHash}`);
+        if (error) throw error;
+
+        console.log(`[Supabase] Saved deposit pending proof: ${txHash}`);
         return NextResponse.json({ success: true, message: "Deposit queued" });
     } catch (e: any) {
+        console.error("DB Error:", e);
         return NextResponse.json({ error: e.message }, { status: 500 });
     }
 }
@@ -81,12 +88,15 @@ export async function GET(request: NextRequest) {
     }
 
     try {
-        // Check DB first
-        const db = await getDb();
-        const existing = db.getDeposit(txHash);
+        // Check Supabase first
+        const { data: existing, error: dbError } = await supabase
+            .from('deposits')
+            .select('*')
+            .eq('tx_hash', txHash)
+            .single();
 
         if (existing?.proof) {
-            console.log(`[DB] Returning cached proof for ${txHash}`);
+            console.log(`[Supabase] Returning cached proof for ${txHash}`);
             return NextResponse.json(existing.proof);
         }
 
@@ -104,14 +114,15 @@ export async function GET(request: NextRequest) {
             sourceProvider
         );
 
-        // Save to DB
-        db.saveDeposit({
-            txHash,
-            chainKey,
-            status: "ProofGenerated",
-            proof,
-            createdAt: Date.now()
-        });
+        // Save to Supabase
+        await supabase
+            .from('deposits')
+            .update({
+                status: 'ProofGenerated',
+                proof: proof, // Supabase JSONB column handles object directly
+                updated_at: new Date().toISOString()
+            })
+            .eq('tx_hash', txHash);
 
         return NextResponse.json(proof);
     } catch (error: any) {

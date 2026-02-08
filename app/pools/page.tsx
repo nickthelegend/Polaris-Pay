@@ -109,6 +109,10 @@ export default function PoolsPage() {
     const [withdrawTarget, setWithdrawTarget] = useState<{ token: string, symbol: string } | null>(null);
     const [lastDepositTx, setLastDepositTx] = useState<string | null>(null);
 
+    // Proof Viewer State
+    const [isProofViewerOpen, setIsProofViewerOpen] = useState(false);
+    const [generatedProof, setGeneratedProof] = useState<any>(null);
+
     const { data: poolsData } = useSWR("/api/pools", fetcher)
     const pools = poolsData?.pools ?? []
 
@@ -194,7 +198,6 @@ export default function PoolsPage() {
             toast.success("Deposit successful! Auto-syncing credit limit...");
 
             setLastDepositTx(receipt.hash);
-            setLastDepositTx(receipt.hash);
             setIsDepositOpen(false); // Close Modal immediately
 
             // 1. Push to Database (Fire & Forget)
@@ -248,25 +251,43 @@ export default function PoolsPage() {
 
             if (!proof) throw new Error("Sync timed out. Please try Manual Sync.");
 
-            // 2. Switch to Master Hub (USC) if not already there
+            // Open Proof Viewer
+            setGeneratedProof(proof);
+            setIsProofViewerOpen(true);
+            toast.success("Proof Generated! Review in terminal.");
+
+            // We don't auto-finalize now, we let the user review and click "Sync"
+        } catch (error: any) {
+            console.error("Auto-sync failed:", error);
+            toast.warn("Sync requires manual approval.");
+            setSyncProofData(txHash);
+        }
+    };
+
+    const finalizeSync = async () => {
+        if (!generatedProof) return;
+        try {
+            // Switch to Hub if needed
             if (Number(chainId) !== NETWORKS.USC.id) {
-                toast.info("Proof Ready! Switch to Hub to finalize.");
+                toast.info("Please switch to Master Hub (USC) to finalize.");
+                // return; // Let them switch and click again? Or wagmi switch?
+                // For better UX, we just proceed and let the wallet prompt invoke switch if possible or fail.
             }
 
             toast.info("Submitting Proof to Master Chain...");
-            await addLiquidityFromProof(proof);
+            await addLiquidityFromProof(generatedProof);
 
             toast.success("✅ Protocol Synced!");
+            setIsProofViewerOpen(false);
+            setGeneratedProof(null);
             setSelectedView("USC");
             refreshData();
-        } catch (error: any) {
-            console.error("Auto-sync failed:", error);
-            // Don't open manual modal aggressively, just notify
-            toast.warn("Sync requires manual approval.");
-            setSyncProofData(txHash);
-            // allow user to click manual sync
+        } catch (e) {
+            console.error(e);
+            toast.error("Sync failed on chain.");
         }
     };
+
 
     const executeLoan = async () => {
         try {
@@ -713,13 +734,21 @@ export default function PoolsPage() {
 
                                     const proof = await ProofUtils.fetchProof(syncProofData, chainKey);
 
+                                    // Open Proof Viewer instead of auto-submit
+                                    setLastDepositTx(syncProofData); // For display in viewer
+                                    setGeneratedProof(proof);
+                                    setIsProofViewerOpen(true);
+                                    setIsSyncOpen(false); // Close input modal
+
+                                    /* 
                                     toast.info("Proof Generated! Submitting to Hub...");
                                     await addLiquidityFromProof(proof);
 
                                     toast.success("Liquidity Synced Successfully!");
                                     setIsSyncOpen(false);
                                     setSyncProofData("");
-                                    refreshData();
+                                    refreshData(); 
+                                    */
                                 } catch (e: any) {
                                     console.error(e);
                                     toast.error(e.message || "Sync Failed");
@@ -747,6 +776,59 @@ export default function PoolsPage() {
                     </div>
                 </DialogContent>
             </Dialog>
+
+            {/* Proof Viewer Modal */}
+            <Dialog open={isProofViewerOpen} onOpenChange={setIsProofViewerOpen}>
+                <DialogContent className="bg-zinc-950 border border-white/10 text-white font-mono rounded-lg shadow-2xl p-0 gap-0 max-w-2xl">
+                    <DialogTitle className="sr-only">Proof Explorer</DialogTitle>
+                    <div className="bg-white/5 px-4 py-2 border-b border-white/10 flex justify-between items-center">
+                        <span className="text-[10px] text-white/40 uppercase tracking-widest">NATIVE_VERIFICATION_LAYER // PROOF_EXPLORER</span>
+                        <div className="flex items-center gap-2">
+                            <div className="size-2 rounded-full bg-green-500 animate-pulse" />
+                            <span className="text-[10px] text-green-500 font-bold uppercase">VERIFIED</span>
+                        </div>
+                    </div>
+                    <div className="p-0 flex flex-col">
+                        <div className="p-6 bg-black/50 overflow-x-auto max-h-[400px] text-[10px] text-white/70 font-mono">
+                            <pre>{JSON.stringify(generatedProof, (key, value) => {
+                                if (key === 'siblings') return `[Array(${value.length})]`; // Truncate siblings for cleaner view
+                                return value;
+                            }, 2)}</pre>
+                        </div>
+
+                        <div className="p-6 border-t border-white/10 flex flex-col gap-4">
+                            <div className="flex flex-col gap-1">
+                                <span className="text-white text-lg font-bold uppercase tracking-tighter">Oracle Verification Complete</span>
+                                <span className="text-[10px] text-white/40 uppercase">
+                                    The integrity of your deposit has been cryptographically verified by the Creditcoin V2 Oracle.
+                                </span>
+                                <span className="text-[10px] text-yellow-400 mt-2 uppercase font-bold animate-pulse">
+                                    ⚠ Action Required: Submit this proof to the Network below.
+                                </span>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="p-3 bg-white/5 rounded-sm border border-white/10">
+                                    <span className="block text-[8px] text-white/40 uppercase tracking-widest mb-1">Merkle Root</span>
+                                    <span className="block text-[10px] text-primary truncate">{generatedProof?.merkleRoot}</span>
+                                </div>
+                                <div className="p-3 bg-white/5 rounded-sm border border-white/10">
+                                    <span className="block text-[8px] text-white/40 uppercase tracking-widest mb-1">Tx Hash</span>
+                                    <span className="block text-[10px] text-white/60 truncate">{lastDepositTx}</span>
+                                </div>
+                            </div>
+
+                            <button
+                                onClick={finalizeSync}
+                                className="w-full bg-primary hover:bg-primary/80 text-primary-foreground py-4 rounded-sm font-black text-xs uppercase cursor-pointer"
+                            >
+                                FINALIZE SYNC ON MASTER HUB
+                            </button>
+                        </div>
+                    </div>
+                </DialogContent>
+            </Dialog>
+
         </ConnectGate>
     )
 }
