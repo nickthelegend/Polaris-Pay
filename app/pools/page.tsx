@@ -252,7 +252,7 @@ export default function PoolsPage() {
         if (!withdrawTarget) return;
         try {
             toast.info(`Requesting withdrawal of ${withdrawAmount} ${withdrawTarget.symbol}...`);
-            await requestWithdrawal(CONTRACTS.SPOKES.SEPOLIA.USDC, withdrawAmount);
+            await requestWithdrawal(CONTRACTS.SPOKES.SEPOLIA.USDC, withdrawAmount, NETWORKS.SEPOLIA.id);
             toast.success("Withdrawal Authorized! Check monitor for status.");
             setIsWithdrawOpen(false);
             refreshData();
@@ -580,14 +580,54 @@ export default function PoolsPage() {
                         <span className="text-[10px] text-white/40 uppercase tracking-widest">MANUAL_ORACLE_SYNC</span>
                     </div>
                     <div className="p-8 flex flex-col gap-6">
-                        <DialogTitle className="text-xl font-bold uppercase tracking-tighter">Submit V2 Proof JSON</DialogTitle>
-                        <textarea
-                            value={syncProofData}
-                            onChange={(e) => setSyncProofData(e.target.value)}
-                            className="w-full bg-white/5 border border-white/10 rounded-sm py-4 px-4 text-xs font-mono text-white focus:outline-none min-h-[200px]"
-                            placeholder='{ "chainKey": 1, "blockHeight": 123, ... }'
-                        />
-                        <button onClick={executeSyncProof} className="w-full bg-white text-black py-4 font-black">SYNC</button>
+                        <DialogTitle className="text-xl font-bold uppercase tracking-tighter">Sync Transaction</DialogTitle>
+                        <DialogDescription className="text-[10px] text-white/40 uppercase">
+                            Enter the Source Chain Transaction Hash to generate a proof and sync liquidity.
+                        </DialogDescription>
+
+                        <div className="flex flex-col gap-2">
+                            <label className="text-[10px] uppercase text-white/60">Source Tx Hash</label>
+                            <input
+                                value={syncProofData}
+                                onChange={(e) => setSyncProofData(e.target.value)}
+                                className="w-full bg-white/5 border border-white/10 rounded-sm py-3 px-4 text-xs font-mono text-white focus:outline-none"
+                                placeholder="0x..."
+                            />
+                        </div>
+
+                        <button
+                            onClick={async () => {
+                                if (!syncProofData.startsWith("0x")) {
+                                    toast.error("Invalid Hash");
+                                    return;
+                                }
+                                try {
+                                    toast.info("Generating Proof... (This may take a minute)");
+                                    // Dynamically import to avoid server-side issues if any
+                                    const { ProofUtils } = await import("@/lib/proof-utils");
+                                    // Use Chain Key 1 (Sepolia) by default or detect from context?
+                                    // Ideally we let user select, but for now assuming Sepolia (1)
+                                    // If user is on Localnet, we use 1337
+                                    const chainKey = selectedView === "USC" ? 1 : (NETWORKS[selectedView]?.id === 1337 ? 1337 : 1);
+
+                                    const proof = await ProofUtils.fetchProof(syncProofData, chainKey);
+
+                                    toast.info("Proof Generated! Submitting to Hub...");
+                                    await addLiquidityFromProof(proof);
+
+                                    toast.success("Liquidity Synced Successfully!");
+                                    setIsSyncOpen(false);
+                                    setSyncProofData("");
+                                    refreshData();
+                                } catch (e: any) {
+                                    console.error(e);
+                                    toast.error(e.message || "Sync Failed");
+                                }
+                            }}
+                            className="w-full bg-white hover:bg-white/90 text-black py-4 font-black uppercase tracking-widest text-xs rounded-sm transition-all"
+                        >
+                            VERIFY_AND_SYNC
+                        </button>
                     </div>
                 </DialogContent>
             </Dialog>

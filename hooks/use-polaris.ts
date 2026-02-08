@@ -74,8 +74,10 @@ export function usePolaris() {
         chainKey: string | number;
         blockHeight: string | number;
         encodedTransaction: string;
-        merkleProof: any;
-        continuityProof: any;
+        merkleRoot: string;
+        siblings: { hash: string; isLeft: boolean }[];
+        lowerEndpointDigest: string;
+        continuityRoots: string[];
     }) => {
         setLoading(true);
         try {
@@ -84,8 +86,10 @@ export function usePolaris() {
                 proof.chainKey,
                 proof.blockHeight,
                 proof.encodedTransaction,
-                proof.merkleProof,
-                proof.continuityProof
+                proof.merkleRoot,
+                proof.siblings,
+                proof.lowerEndpointDigest,
+                proof.continuityRoots
             );
             const receipt = await tx.wait();
             setTxHash(receipt.hash);
@@ -256,13 +260,13 @@ export function usePolaris() {
         }
     };
 
-    const requestWithdrawal = async (tokenAddress: string, amount: string) => {
+    const requestWithdrawal = async (tokenAddress: string, amount: string, destChainId: number) => {
         setLoading(true);
         try {
             const poolManager = await getContract(CONTRACTS.MASTER.POOL_MANAGER, ABIS.PoolManager, NETWORKS.USC.id);
             const amountWei = parseUnits(amount, 18);
 
-            const tx = await poolManager.requestWithdrawal(tokenAddress, amountWei);
+            const tx = await poolManager.requestWithdrawal(tokenAddress, amountWei, destChainId);
             const receipt = await tx.wait();
             setTxHash(receipt.hash);
             return receipt;

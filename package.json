@@ -11,6 +11,7 @@
     "test": "jest"
   },
   "dependencies": {
+    "@gluwa/cc-next-query-builder": "^0.6.1",
     "@hookform/resolvers": "^3.10.0",
     "@prisma/client": "^6.17.1",
     "@privy-io/react-auth": "^3.12.0",
@@ -53,6 +54,7 @@
     "cmdk": "1.0.4",
     "date-fns": "4.1.0",
     "embla-carousel-react": "8.5.1",
+    "eth-proof": "^2.1.6",
     "ethers": "^6.16.0",
     "geist": "latest",
     "input-otp": "1.4.1",

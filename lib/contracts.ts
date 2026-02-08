@@ -10,38 +10,39 @@ import ScoreManagerABI from './abis/ScoreManager.json';
 
 export const CONTRACTS = {
     MASTER: {
-        POOL_MANAGER: "0x369B65aaD1c39159a0f860012f59D0F4c3484812",
-        LOAN_ENGINE: "0xbCFCF4D1B880Ea38b71E45394FaCC5b71678C44A",
-        MERCHANT_ROUTER: "0xf75C8eE5b4a005120bCF0D6d457A8000dddDea8f",
-        ORACLE: "0x0000000000000000000000000000000000000FD2",
-        SCORE_MANAGER: "0x5A1D3939C5b3a43B36Dc42C816bc5c0F02c1C261"
+        POOL_MANAGER: "0xB159E0c8093081712c92e274DbFEa5A97A80cA30",
+        LOAN_ENGINE: "0x38E9cDB0eBc128bEA55c36C03D5532697669132d",
+        SCORE_MANAGER: "0x214730188780a3A64fD24ede85f2724535772Ff0",
+        ORACLE: "0x0000000000000000000000000000000000000FD2"
     },
     SPOKES: {
         SEPOLIA: {
-            LIQUIDITY_VAULT: "0x7F7FfeC9a7a6DC8B383606BE86DE5bE9e99a1302",
-            USDC: "0x02969F85a3B1f72c3317B494c41593d8F4B58907",
-            USDT: "0x546Bbb8B960EaF059B0771cC4808Da13829e1c42",
-            CTC: "0xD221D9E4F6E6709a3cf38cEC57662bbC7F60f3Df"
+            LIQUIDITY_VAULT: "0x8C213a3Db9187966Ebf8DfD0488A225044265AeF",
+            USDC: "0xbCFCF4D1B880Ea38b71E45394FaCC5b71678C44A",
+            USDT: "0xf75C8eE5b4a005120bCF0D6d457A8000dddDea8f",
+            id: 11155111
         },
-        BASE_SEPOLIA: {
-            LIQUIDITY_VAULT: "0xEaa46cBBcAA628f923b3AEF76E560b3ba7E82747",
-            USDC: "0xB159E0c8093081712c92e274DbFEa5A97A80cA30",
-            USDT: "0x214730188780a3A64fD24ede85f2724535772Ff0",
-            CTC: "0x38E9cDB0eBc128bEA55c36C03D5532697669132d"
+        HEDERA: {
+            LIQUIDITY_VAULT: "0x214730188780a3A64fD24ede85f2724535772Ff0",
+            USDC: "0x84373D817230268b2dE1d7727ca3c930293CCE51",
+            USDT: "0xB159E0c8093081712c92e274DbFEa5A97A80cA30",
+            id: 296
         },
         GANACHE: {
-            LIQUIDITY_VAULT: "0xE66545D2271438Df70f0798E7A7c8DA5870BcD17",
-            USDC: "0x9eFDA0B182b47F92cEb448E443c6250b60b2E9cE",
-            USDT: "0x2c79502882bD43748a0bEe4a72206e0A1f856ba0",
-            CTC: "0x158389325C6e4B7c7bfC976d8ec8Df731F96b846"
+            LIQUIDITY_VAULT: "0xD65C8EE7bEc2A0d8b4De201D4dA8fE8618d2804c",
+            USDC: "0x0630517f75661fB84e2AA461F4a49D087bD62D9D",
+            USDT: "0xCA1a2faA0d3c9b3c46Ef7550270be343D1D0fc63",
+            POOL_MANAGER: "0x318f9E71124B8792bFE72b5bB21F3bFD5B90AecD",
+            LOAN_ENGINE: "0x0f52D2B6d931290392F98D83be7D7807FfFf3f60",
+            SCORE_MANAGER: "0xe9eF0a76C7E6EE3dA1ccAF4648A8c74bA3D388ED",
+            id: 1337
         }
     },
-    // Legacy support to prevent breaking hooks
+    // Legacy support
     SOURCE: {
-        LIQUIDITY_VAULT: "0x7F7FfeC9a7a6DC8B383606BE86DE5bE9e99a1302",
-        USDC: "0x02969F85a3B1f72c3317B494c41593d8F4B58907",
-        USDT: "0x546Bbb8B960EaF059B0771cC4808Da13829e1c42",
-        CTC: "0xD221D9E4F6E6709a3cf38cEC57662bbC7F60f3Df"
+        LIQUIDITY_VAULT: "0x8C213a3Db9187966Ebf8DfD0488A225044265AeF",
+        USDC: "0xbCFCF4D1B880Ea38b71E45394FaCC5b71678C44A",
+        USDT: "0xf75C8eE5b4a005120bCF0D6d457A8000dddDea8f"
     }
 };
 
@@ -59,25 +60,25 @@ export const ABIS = {
 
 export const NETWORKS = {
     USC: {
-        id: 102033,
-        name: "USC Hub",
-        rpc: "https://rpc.usc-testnet.creditcoin.network",
-        explorer: "https://explorer.usc-testnet.creditcoin.network",
-        icon: "ethereum"
+        id: 102036,
+        name: "USC Hub V2",
+        rpc: "https://rpc.usc-testnet2.creditcoin.network",
+        explorer: "https://testnet.creditcoin.org",
+        icon: "creditcoin"
     },
     SEPOLIA: {
         id: 11155111,
         name: "Eth Sepolia",
-        rpc: "https://api.zan.top/eth-sepolia",
+        rpc: "https://1rpc.io/sepolia",
         explorer: "https://sepolia.etherscan.io",
         icon: "ethereum"
     },
-    BASE_SEPOLIA: {
-        id: 84532,
-        name: "Base Sepolia",
-        rpc: "https://base-sepolia-rpc.publicnode.com",
-        explorer: "https://sepolia.basescan.org",
-        icon: "base"
+    HEDERA: {
+        id: 296,
+        name: "Hedera Testnet",
+        rpc: "https://testnet.hashio.io/api",
+        explorer: "https://hashscan.io/testnet",
+        icon: "hedera"
     },
     GANACHE: {
         id: 1337,

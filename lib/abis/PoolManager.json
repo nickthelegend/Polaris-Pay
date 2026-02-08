@@ -1,6 +1,12 @@
 [
   {
-    "inputs": [],
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "_verifier",
+        "type": "address"
+      }
+    ],
     "stateMutability": "nonpayable",
     "type": "constructor"
   },
@@ -24,6 +30,11 @@
       }
     ],
     "name": "OwnableUnauthorizedAccount",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "ReentrancyGuardReentrantCall",
     "type": "error"
   },
   {
@@ -203,6 +214,19 @@
   },
   {
     "inputs": [],
+    "name": "TRANSFER_EVENT_SIGNATURE",
+    "outputs": [
+      {
+        "internalType": "bytes32",
+        "name": "",
+        "type": "bytes32"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
     "name": "VERIFIER",
     "outputs": [
       {
@@ -232,50 +256,36 @@
         "type": "bytes"
       },
       {
-        "components": [
-          {
-            "internalType": "bytes32",
-            "name": "root",
-            "type": "bytes32"
-          },
-          {
-            "components": [
-              {
-                "internalType": "bytes32",
-                "name": "hash",
-                "type": "bytes32"
-              },
-              {
-                "internalType": "bool",
-                "name": "isLeft",
-                "type": "bool"
-              }
-            ],
-            "internalType": "struct INativeQueryVerifier.MerkleProofEntry[]",
-            "name": "siblings",
-            "type": "tuple[]"
-          }
-        ],
-        "internalType": "struct INativeQueryVerifier.MerkleProof",
-        "name": "merkleProof",
-        "type": "tuple"
+        "internalType": "bytes32",
+        "name": "merkleRoot",
+        "type": "bytes32"
       },
       {
         "components": [
           {
             "internalType": "bytes32",
-            "name": "lowerEndpointDigest",
+            "name": "hash",
             "type": "bytes32"
           },
           {
-            "internalType": "bytes32[]",
-            "name": "roots",
-            "type": "bytes32[]"
+            "internalType": "bool",
+            "name": "isLeft",
+            "type": "bool"
           }
         ],
-        "internalType": "struct INativeQueryVerifier.ContinuityProof",
-        "name": "continuityProof",
-        "type": "tuple"
+        "internalType": "struct INativeQueryVerifier.MerkleProofEntry[]",
+        "name": "siblings",
+        "type": "tuple[]"
+      },
+      {
+        "internalType": "bytes32",
+        "name": "lowerEndpointDigest",
+        "type": "bytes32"
+      },
+      {
+        "internalType": "bytes32[]",
+        "name": "continuityRoots",
+        "type": "bytes32[]"
       }
     ],
     "name": "addLiquidityFromProof",
@@ -415,6 +425,25 @@
     "type": "function"
   },
   {
+    "inputs": [
+      {
+        "internalType": "bytes32",
+        "name": "",
+        "type": "bytes32"
+      }
+    ],
+    "name": "processedQueries",
+    "outputs": [
+      {
+        "internalType": "bool",
+        "name": "",
+        "type": "bool"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
     "inputs": [],
     "name": "renounceOwnership",
     "outputs": [],
@@ -532,25 +561,6 @@
     "name": "transferOwnership",
     "outputs": [],
     "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "bytes32",
-        "name": "",
-        "type": "bytes32"
-      }
-    ],
-    "name": "usedTxId",
-    "outputs": [
-      {
-        "internalType": "bool",
-        "name": "",
-        "type": "bool"
-      }
-    ],
-    "stateMutability": "view",
     "type": "function"
   },
   {

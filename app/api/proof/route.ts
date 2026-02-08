@@ -1,0 +1,80 @@
+import { NextRequest, NextResponse } from "next/server";
+import { ethers } from "ethers";
+import { generateProofFor } from "@/lib/gluwa-prover";
+import { NETWORKS } from "@/lib/contracts";
+
+const PROVER_API_URL = "https://proof-gen-api.usc-testnet2.creditcoin.network";
+
+export async function GET(request: NextRequest) {
+    const searchParams = request.nextUrl.searchParams;
+    const txHash = searchParams.get("txHash");
+    const chainKeyParam = searchParams.get("chainKey");
+
+    if (!txHash) {
+        return NextResponse.json({ error: "Missing txHash" }, { status: 400 });
+    }
+
+    const chainKey = chainKeyParam ? parseInt(chainKeyParam, 10) : 1; // Default to Sepolia (1)
+
+    // Handle Localnet (Mock Proof)
+    if (chainKey === 1337) {
+        console.log("[PROOF-API] Generating Mock Proof for Localnet/Ganache...");
+        // Return dummy data that matches what EvmV1Decoder expects for Mocks
+        // In local/mock setup, usually verifyAndEmit is mocked or accepts simple data
+        // We return a structure compatible with our frontend expectations
+        return NextResponse.json({
+            chainKey,
+            headerNumber: 1, // Mock block
+            merkleProof: {
+                root: "0x" + "0".repeat(64),
+                siblings: []
+            },
+            continuityProof: {
+                lowerEndpointDigest: "0x" + "0".repeat(64),
+                roots: ["0x" + "0".repeat(64)]
+            },
+            txBytes: "0x" // Mock transaction bytes
+        });
+    }
+
+    // Handle Real Proofs (Sepolia)
+    // For Hedera, we might not have Prover support yet, but we'll try if chainKey is correct.
+    // Assuming chainKey 1 is Sepolia on USC Testnet.
+
+    // Choose Source RPC
+    let sourceRpcUrl = NETWORKS.SEPOLIA.rpc;
+    if (chainKey === 296) { // Hedera Chain ID
+        // TODO: Verify if Prover supports Hedera KEY. For now assume it doesn't or map key.
+        // If user provided mapped key in params, use it.
+        // If we don't support Hedera Proving yet, return error or mock.
+        // User said "dont use mock", so we try. But if API fails, we return error.
+        sourceRpcUrl = NETWORKS.HEDERA.rpc;
+    }
+
+    try {
+        console.log(`[PROOF-API] Requesting proof for ${txHash} on chain ${chainKey} from ${PROVER_API_URL}`);
+
+        const ccProvider = new ethers.JsonRpcProvider(NETWORKS.USC.rpc);
+        const sourceProvider = new ethers.JsonRpcProvider(sourceRpcUrl);
+
+        // Call Gluwa Prover
+        // Note: This waits for attestation (could timeout Vercel function)
+        // Ideally, frontend polls this or we use a queue.
+        // For "End-to-End Verification" demo, we hope attestation is fast or use existing tx.
+        const proof = await generateProofFor(
+            txHash,
+            chainKey,
+            PROVER_API_URL,
+            ccProvider,
+            sourceProvider
+        );
+
+        return NextResponse.json(proof);
+    } catch (error: any) {
+        console.error("[PROOF-API] Error:", error);
+        return NextResponse.json(
+            { error: error.message || "Failed to generate proof" },
+            { status: 500 }
+        );
+    }
+}
