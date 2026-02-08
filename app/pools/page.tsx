@@ -790,7 +790,7 @@ export default function PoolsPage() {
                     </div>
                     <div className="p-0 flex flex-col">
                         <div className="p-6 bg-black/50 overflow-x-auto max-h-[400px] text-[10px] text-white/70 font-mono">
-                            <pre>{JSON.stringify(generatedProof, (key, value) => {
+                            <pre className="whitespace-pre-wrap break-all">{JSON.stringify(generatedProof, (key, value) => {
                                 if (key === 'siblings') return `[Array(${value.length})]`; // Truncate siblings for cleaner view
                                 return value;
                             }, 2)}</pre>

@@ -134,7 +134,8 @@ export function usePolaris() {
                 proof.merkleRoot,
                 proof.siblings,
                 proof.lowerEndpointDigest,
-                proof.continuityRoots
+                proof.continuityRoots,
+                { gasLimit: 6000000 }
             );
             const receipt = await tx.wait();
             setTxHash(receipt.hash);
