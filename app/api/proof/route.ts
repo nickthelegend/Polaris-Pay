@@ -17,9 +17,8 @@ export async function POST(req: NextRequest) {
 
         if (!txHash) return NextResponse.json({ error: "Missing txHash" }, { status: 400 });
 
-        // If hubTxHash is provided, we are updating an existing deposit
         if (hubTxHash) {
-            const { error } = await supabase
+            const { error: updateError } = await supabase
                 .from('deposits')
                 .update({
                     hub_tx_hash: hubTxHash,
@@ -28,7 +27,13 @@ export async function POST(req: NextRequest) {
                 })
                 .eq('tx_hash', txHash);
 
-            if (error) throw error;
+            if (updateError) {
+                if (updateError.code === 'PGRST204') {
+                    console.warn("[Supabase] hub_tx_hash column missing. Please run: ALTER TABLE deposits ADD COLUMN hub_tx_hash TEXT;");
+                    return NextResponse.json({ success: false, warning: "Column missing in DB" });
+                }
+                throw updateError;
+            }
             return NextResponse.json({ success: true, message: "Hub hash updated" });
         }
 
@@ -143,6 +148,7 @@ export async function GET(request: NextRequest) {
             })
             .eq('tx_hash', txHash);
 
+        console.log(`[PROOF-API] Sending proof response for ${txHash}`);
         return NextResponse.json(proof);
     } catch (error: any) {
         console.error("[PROOF-API] Error:", error.message);

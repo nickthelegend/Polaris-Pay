@@ -3,6 +3,7 @@ import { useBridge, BridgeTransaction } from "@/hooks/use-bridge"
 import { RefreshCw, ExternalLink, CheckCircle2, Clock, AlertCircle, Zap } from "lucide-react"
 import { useState } from "react";
 import { toast } from "sonner";
+import { useRouter } from "next/navigation";
 
 interface BridgeStatusProps {
     address: string | undefined;
@@ -11,6 +12,7 @@ interface BridgeStatusProps {
 export function BridgeStatus({ address }: BridgeStatusProps) {
     const { transactions, loading } = useBridge(address);
     const [syncing, setSyncing] = useState<string | null>(null);
+    const router = useRouter();
 
     if (!address || (transactions.length === 0 && !loading)) return null;
 
@@ -91,7 +93,19 @@ export function BridgeStatus({ address }: BridgeStatusProps) {
                                 </div>
                             </div>
                             <div className="flex items-center gap-2">
-                                {tx.status !== 'COMPLETED' && (
+                                {tx.status === 'VERIFIED' && (
+                                    <button
+                                        onClick={() => {
+                                            console.log("[BRIDGE-MONITOR] FINALIZE clicked for hash:", tx.source_tx_hash);
+                                            router.push('/pools?sync=' + tx.source_tx_hash);
+                                        }}
+                                        className="p-1 px-2 bg-green-500/20 hover:bg-green-500/30 rounded text-[9px] font-black text-green-400 border border-green-500/20 flex items-center gap-1 active:scale-95 transition-transform"
+                                    >
+                                        <Zap className="w-2.5 h-2.5" />
+                                        FINALIZE
+                                    </button>
+                                )}
+                                {tx.status !== 'COMPLETED' && tx.status !== 'VERIFIED' && (
                                     <button
                                         onClick={() => triggerSync(tx.source_tx_hash)}
                                         disabled={syncing === tx.source_tx_hash}

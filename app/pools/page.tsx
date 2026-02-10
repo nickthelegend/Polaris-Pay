@@ -53,7 +53,12 @@ const getChainIcon = (chain: string) => {
     return icons[chain.toLowerCase()] || icons.ethereum;
 };
 
+import { useSearchParams } from "next/navigation"
+
 export default function PoolsPage() {
+    const searchParams = useSearchParams();
+    const syncParam = searchParams.get("sync");
+
     const {
         address,
         depositLiquidity,
@@ -114,6 +119,16 @@ export default function PoolsPage() {
     const [withdrawAmount, setWithdrawAmount] = useState("50");
     const [withdrawTarget, setWithdrawTarget] = useState<{ token: string, symbol: string } | null>(null);
     const [lastDepositTx, setLastDepositTx] = useState<string | null>(null);
+    const [triedSync, setTriedSync] = useState(false);
+
+    // Deep link sync
+    useEffect(() => {
+        if (syncParam && authenticated && !triedSync) {
+            console.log(`[POLARIS] Deep-link sync triggering for: ${syncParam}`);
+            setTriedSync(true);
+            autoSyncProof(syncParam, "SEPOLIA");
+        }
+    }, [syncParam, authenticated, triedSync]);
 
     // Proof Viewer State
     const [isProofViewerOpen, setIsProofViewerOpen] = useState(false);
@@ -257,39 +272,71 @@ export default function PoolsPage() {
     };
 
     const autoSyncProof = async (txHash: string, sourceChainKey: keyof typeof NETWORKS) => {
+        console.log(`[POLARIS] autoSyncProof started for ${txHash} on ${sourceChainKey}`);
+        setSyncProofData(txHash); // Set this so finalizeSync knows which tx to update in DB
         try {
             // Polling Logic
             let attempts = 0;
-            const maxAttempts = 240; // 20 minutes (Attestation can take 10-15 mins)
+            const maxAttempts = 150;
             let proof = null;
 
             toast.info("⏳ Syncing Protocol State... (You can browse freely)");
 
             while (attempts < maxAttempts) {
                 try {
-                    const chainKeyId = NETWORKS[sourceChainKey].id;
-                    // This GET now hits our internal DB first
+                    const chainKeyId = (NETWORKS as any)[sourceChainKey].id;
+                    console.log(`[POLARIS] Attempt ${attempts + 1} - Polling for: ${txHash}`);
+
                     const response = await fetch(`/api/proof?txHash=${txHash}&chainKey=${chainKeyId}`);
                     const data = await response.json();
 
-                    if (data.merkleRoot) {
-                        // Proof Found!
-                        const { ProofUtils } = await import("@/lib/proof-utils");
-                        proof = ProofUtils.formatProof(data);
-                        break;
-                    }
-                } catch (e) { }
+                    // DEBUG: LOG FULL RESPONSE
+                    console.log("[POLARIS] Received Data:", data);
 
-                await new Promise(r => setTimeout(r, 5000)); // Poll every 5s
+                    const actual = data.data || data;
+
+                    if (actual.merkleRoot || (actual.merkleProof && actual.merkleProof.root)) {
+                        console.log("[POLARIS] ✅ Proof Found!");
+                        const { ProofUtils } = await import("@/lib/proof-utils");
+
+                        if (data.data) {
+                            proof = {
+                                chainKey: data.data.chainKey,
+                                blockHeight: data.data.headerNumber,
+                                encodedTransaction: data.data.txBytes,
+                                merkleRoot: data.data.merkleProof.root,
+                                siblings: data.data.merkleProof.siblings.map((s: any) => ({
+                                    hash: s.hash,
+                                    isLeft: s.isLeft
+                                })),
+                                lowerEndpointDigest: data.data.continuityProof.lowerEndpointDigest,
+                                continuityRoots: data.data.continuityProof.roots || []
+                            };
+                        } else {
+                            proof = ProofUtils.formatProof(actual);
+                        }
+                        break;
+                    } else {
+                        console.log("[POLARIS] ❌ Still waiting. Status:", data.status || "WAITING_PROVER");
+                    }
+                } catch (e: any) {
+                    console.error("[POLARIS] Polling error:", e.message);
+                }
+
+                await new Promise(r => setTimeout(r, 8000));
                 attempts++;
             }
 
-            if (!proof) throw new Error("Sync timed out. Please try Manual Sync.");
+            if (!proof) {
+                console.error("[POLARIS] Sync timed out after 20 minutes.");
+                throw new Error("Sync timed out. Please try Manual Sync.");
+            }
 
             // Open Proof Viewer
+            console.log("[POLARIS] Opening Proof Viewer Modal...");
             setGeneratedProof(proof);
             setIsProofViewerOpen(true);
-            toast.success("Proof Generated! Review in terminal.");
+            toast.success("Proof Generated! Ready to finalize.");
 
             // We don't auto-finalize now, we let the user review and click "Sync"
         } catch (error: any) {
@@ -313,16 +360,21 @@ export default function PoolsPage() {
             const receipt = await addLiquidityFromProof(generatedProof);
 
             // Record the HUB hash so it shows up in explorer links
-            try {
-                await fetch("/api/proof", {
-                    method: "POST",
-                    body: JSON.stringify({
-                        txHash: lastDepositTx, // The source tx
-                        hubTxHash: receipt.hash,
-                        status: 'Synced'
-                    })
-                });
-            } catch (e) { console.warn("DB Update failed", e); }
+            // Use lastDepositTx or fallback to syncProofData which holds the hash during manual sync
+            const sourceTx = lastDepositTx || syncProofData;
+
+            if (sourceTx) {
+                try {
+                    await fetch("/api/proof", {
+                        method: "POST",
+                        body: JSON.stringify({
+                            txHash: sourceTx,
+                            hubTxHash: receipt.hash,
+                            status: 'Synced'
+                        })
+                    });
+                } catch (e) { console.warn("DB Update failed", e); }
+            }
 
             toast.success("✅ Protocol Synced!");
             setIsProofViewerOpen(false);
