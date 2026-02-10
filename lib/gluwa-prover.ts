@@ -29,16 +29,20 @@ export async function generateProofFor(
 
         console.log(`[PROVER] Transaction ${txHash} found in block ${blockNumber}`);
 
-        // Now that we have the block number, we can setup the chain info provider to await for its attestation
+        // Now that we have the block number, we can setup the chain info provider
         const info = new chainInfo.PrecompileChainInfoProvider(creditcoinRpc);
 
-        console.log(`[PROVER] Waiting for block ${blockNumber} attestation on Creditcoin...`);
+        console.log(`[PROVER] Checking if block ${blockNumber} is attested on Creditcoin...`);
 
-        // We wait for at most 5 minutes for the attestation to be available
-        // The client (API route) will likely timeout if this takes too long.
-        // Ideally this should be polled by the client, but for simplicity in "End-to-End Test" we try to wait.
-        // If the block is already attested (old tx), this returns quickly.
-        await info.waitUntilHeightAttested(chainKey, blockNumber, 5_000, 300_000);
+        // We do a single check instead of a 5-minute wait to avoid API timeouts.
+        // The frontend will poll us anyway.
+        const latest = await info.getLatestAttestedHeightAndHash(chainKey);
+        const isAttested = latest.exists && latest.height >= blockNumber;
+
+        if (!isAttested) {
+            console.log(`[PROVER] Block ${blockNumber} not yet attested. Latest is ${latest.height}. Attestation can take 10-15 minutes.`);
+            throw new Error("BLOCK_NOT_ATTESTED");
+        }
 
         console.log(`[PROVER] Block ${blockNumber} attested! Generating proof...`);
 
@@ -54,9 +58,6 @@ export async function generateProofFor(
         } catch (error: any) {
             console.error('[PROVER] Error during proof generation: ', error?.message || error);
             console.timeEnd(`proof-gen-${txHash}`);
-            if (error?.message?.includes('attestation')) {
-                throw new Error("Block not attested yet. Please wait.");
-            }
             throw error;
         }
     } catch (e: any) {

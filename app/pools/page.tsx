@@ -62,7 +62,9 @@ export default function PoolsPage() {
         getPoolLiquidity,
         getTokenBalance,
         getLPBalance,
-        getLocalVaultStats,
+        getUserTotalCollateral,
+        getTotalTVL,
+        getVaultPhysicalBalance,
         loading,
         authenticated,
         chainId,
@@ -77,11 +79,15 @@ export default function PoolsPage() {
     // Liquidity & Balance State
     const [usdcLiquidity, setUsdcLiquidity] = useState("0");
     const [usdtLiquidity, setUsdtLiquidity] = useState("0");
+    const [usdcPhysicalLiq, setUsdcPhysicalLiq] = useState("0");
+    const [usdtPhysicalLiq, setUsdtPhysicalLiq] = useState("0");
     const [ctcLiquidity, setCtcLiquidity] = useState("0");
     const [usdcUserBalance, setUsdcUserBalance] = useState("0");
     const [usdtUserBalance, setUsdtUserBalance] = useState("0");
     const [usdcLPBalance, setUsdcLPBalance] = useState("0");
     const [usdtLPBalance, setUsdtLPBalance] = useState("0");
+    const [totalEquity, setTotalEquity] = useState("0");
+    const [totalTVL, setTotalTVL] = useState("0");
     const [ctcLPBalance, setCtcLPBalance] = useState("0");
 
     // Default to USC View, but allows selecting which SPOKE to view
@@ -129,11 +135,12 @@ export default function PoolsPage() {
         try {
             console.log(`[POLARIS] Refreshing data for view: ${selectedView}...`);
 
-            // 1. Fetch Master Hub global stats (Liquidity in Master Pools)
-            const hubUsdcLiq = await getPoolLiquidity(CONTRACTS.SPOKES.SEPOLIA.USDC);
-            const hubUsdtLiq = await getPoolLiquidity(CONTRACTS.SPOKES.SEPOLIA.USDT);
-            const hubUsdcLP = await getLPBalance(CONTRACTS.SPOKES.SEPOLIA.USDC);
-            const hubUsdtLP = await getLPBalance(CONTRACTS.SPOKES.SEPOLIA.USDT);
+            // 1. Fetch Aggregated Hub stats (Equity & TVL across ALL chains)
+            const aggregatedEquity = await getUserTotalCollateral();
+            setTotalEquity(aggregatedEquity);
+
+            const aggregatedTVL = await getTotalTVL();
+            setTotalTVL(aggregatedTVL);
 
             // 2. Score & Loans (Always Hub context)
             const score = await getScore();
@@ -144,30 +151,52 @@ export default function PoolsPage() {
             const loans = await getLoans();
             setActiveLoans(loans);
 
-            // 3. Update display based on context
+            // 3. Fetch specific asset liquidities on the HUB using the SOURCE TOKEN ADDRESSES
+            // This ensures we are NOT scraping the spoke, but asking the Hub "how much USDC from Sepolia do we have?"
+            const net = NETWORKS[selectedView];
+            const spokeConfig = (CONTRACTS.SPOKES as any)[selectedView];
+
+            // In USC view, we show Sepolia tokens as a default or sum? 
+            // For now, let's make it smarter: Hub view shows aggregate, Spoke view shows spoke funds recorded on Hub
             if (selectedView === "USC") {
-                setUsdcLiquidity(hubUsdcLiq);
-                setUsdtLiquidity(hubUsdtLiq);
-                setUsdcLPBalance(hubUsdcLP);
-                setUsdtLPBalance(hubUsdtLP);
-                setUsdcUserBalance("0"); // Not relevant in Hub view
-                setUsdtUserBalance("0");
+                // Sum of all whitelisted assets for TVL
+                const usdcHubLiq = await getPoolLiquidity(CONTRACTS.SPOKES.SEPOLIA.USDC);
+                const usdtHubLiq = await getPoolLiquidity(CONTRACTS.SPOKES.SEPOLIA.USDT);
+                setUsdcLiquidity(usdcHubLiq);
+                setUsdtLiquidity(usdtHubLiq);
+
+                const usdcLP = await getLPBalance(CONTRACTS.SPOKES.SEPOLIA.USDC);
+                const usdtLP = await getLPBalance(CONTRACTS.SPOKES.SEPOLIA.USDT);
+                setUsdcLPBalance(usdcLP);
+                setUsdtLPBalance(usdtLP);
             } else {
-                // Fetch stats for the specific spoke
-                const net = NETWORKS[selectedView];
-                const spokeConfig = (CONTRACTS.SPOKES as any)[selectedView];
-                const vaultStatsUsdc = await getLocalVaultStats(spokeConfig.USDC, net.id);
-                const vaultStatsUsdt = await getLocalVaultStats(spokeConfig.USDT, net.id);
+                // Hub's record of this specific spoke's tokens
+                const usdcLiq = await getPoolLiquidity(spokeConfig.USDC);
+                const usdtLiq = await getPoolLiquidity(spokeConfig.USDT);
+                setUsdcLiquidity(usdcLiq);
+                setUsdtLiquidity(usdtLiq);
 
-                setUsdcLiquidity(vaultStatsUsdc.total);
-                setUsdtLiquidity(vaultStatsUsdt.total);
-                setUsdcLPBalance(vaultStatsUsdc.user);
-                setUsdtLPBalance(vaultStatsUsdt.user);
+                const usdcLP = await getLPBalance(spokeConfig.USDC);
+                const usdtLP = await getLPBalance(spokeConfig.USDT);
+                setUsdcLPBalance(usdcLP);
+                setUsdtLPBalance(usdtLP);
 
+                // 4. Fetch Physical Reserves (The actual tokens in the contract on the source chain)
+                const physUsdc = await getVaultPhysicalBalance(spokeConfig.USDC, net.id);
+                const physUsdt = await getVaultPhysicalBalance(spokeConfig.USDT, net.id);
+                setUsdcPhysicalLiq(physUsdc);
+                setUsdtPhysicalLiq(physUsdt);
+
+                // Real user balance on the selected chain (for the deposit button)
                 const ubUsdc = await getTokenBalance(spokeConfig.USDC, net.id);
                 const ubUsdt = await getTokenBalance(spokeConfig.USDT, net.id);
                 setUsdcUserBalance(ubUsdc);
                 setUsdtUserBalance(ubUsdt);
+            }
+
+            if (selectedView === "USC") {
+                setUsdcPhysicalLiq("0");
+                setUsdtPhysicalLiq("0");
             }
 
             console.log(`[SCORE]: ${score}`);
@@ -393,13 +422,13 @@ export default function PoolsPage() {
                             <div className="p-6 flex flex-col gap-1">
                                 <span className="text-[10px] text-white/40 tracking-wider uppercase">Aggregated_Value_Locked</span>
                                 <div className="flex items-baseline gap-2 text-white">
-                                    <span className="text-white text-3xl font-bold tracking-tighter">${(Number(usdcLiquidity) + Number(usdtLiquidity)).toLocaleString()}</span>
+                                    <span className="text-white text-3xl font-bold tracking-tighter">${Number(totalTVL).toLocaleString()}</span>
                                 </div>
                             </div>
                             <div className="p-6 flex flex-col gap-1">
                                 <span className="text-[10px] text-white/40 tracking-wider uppercase">Your_Equity</span>
                                 <div className="flex items-baseline gap-2">
-                                    <span className="text-white text-3xl font-bold tracking-tighter">${(Number(usdcLPBalance) + Number(usdtLPBalance)).toLocaleString()}</span>
+                                    <span className="text-white text-3xl font-bold tracking-tighter">${Number(totalEquity).toLocaleString()}</span>
                                 </div>
                             </div>
                             <div className="p-6 flex flex-col gap-1">
@@ -510,10 +539,10 @@ export default function PoolsPage() {
                                     <span className="text-[10px] text-white/40 uppercase tracking-widest">Asset_Type</span>
                                 </div>
                                 <div className="col-span-2 text-right">
-                                    <span className="text-[10px] text-white/40 uppercase tracking-widest">Depth</span>
+                                    <span className="text-[10px] text-white/40 uppercase tracking-widest">Vault_Reserves</span>
                                 </div>
                                 <div className="col-span-2 text-right">
-                                    <span className="text-[10px] text-white/40 uppercase tracking-widest">Ownership</span>
+                                    <span className="text-[10px] text-white/40 uppercase tracking-widest">Your_Deposit</span>
                                 </div>
                                 <div className="col-span-2 text-right">
                                     <span className="text-[10px] text-white/40 uppercase tracking-widest">APR</span>
@@ -539,10 +568,10 @@ export default function PoolsPage() {
                                         </div>
                                     </div>
                                     <div className="col-span-2 text-right">
-                                        <span className="text-white text-sm tracking-tighter font-medium">${Number(usdcLiquidity).toLocaleString()}</span>
+                                        <span className="text-primary/80 text-sm tracking-tighter font-bold font-mono">${Number(usdcPhysicalLiq).toLocaleString()}</span>
                                     </div>
                                     <div className="col-span-2 text-right">
-                                        <span className="text-white text-sm tracking-tighter font-medium">${Number(usdcLPBalance).toLocaleString()}</span>
+                                        <span className="text-white text-sm tracking-tighter font-medium font-mono">${Number(usdcLPBalance).toLocaleString()}</span>
                                     </div>
                                     <div className="col-span-2 text-right">
                                         <span className="text-primary text-sm tracking-tighter font-bold">{usdcPool?.apr ?? 0}%</span>
@@ -550,13 +579,13 @@ export default function PoolsPage() {
                                     <div className="col-span-2 flex justify-end gap-3">
                                         <button
                                             onClick={() => openDepositModal(selectedView === 'USC' ? CONTRACTS.SPOKES.SEPOLIA.USDC : (CONTRACTS.SPOKES as Record<string, any>)[selectedView].USDC, "USDC")}
-                                            className="bg-primary/90 hover:bg-primary text-primary-foreground px-4 py-1.5 rounded-sm font-black text-[10px] uppercase cursor-pointer"
+                                            className="bg-primary/90 hover:bg-primary text-primary-foreground px-4 py-1.5 rounded-sm font-black text-[10px] uppercase cursor-pointer transition-all active:scale-95"
                                         >
                                             Deposit
                                         </button>
                                         <button
                                             onClick={() => openWithdrawModal(selectedView === 'USC' ? CONTRACTS.SPOKES.SEPOLIA.USDC : (CONTRACTS.SPOKES as Record<string, any>)[selectedView].USDC, "USDC")}
-                                            className="border border-white/10 text-white/60 hover:text-white hover:bg-white/5 px-4 py-1.5 rounded-sm font-bold text-[10px] uppercase"
+                                            className="border border-white/10 text-white/60 hover:text-white hover:bg-white/5 px-4 py-1.5 rounded-sm font-bold text-[10px] uppercase transition-all active:scale-95"
                                         >
                                             Withdraw
                                         </button>
@@ -578,10 +607,10 @@ export default function PoolsPage() {
                                         </div>
                                     </div>
                                     <div className="col-span-2 text-right">
-                                        <span className="text-white text-sm tracking-tighter font-medium">${Number(usdtLiquidity).toLocaleString()}</span>
+                                        <span className="text-primary/80 text-sm tracking-tighter font-bold font-mono">${Number(usdtPhysicalLiq).toLocaleString()}</span>
                                     </div>
                                     <div className="col-span-2 text-right">
-                                        <span className="text-white text-sm tracking-tighter font-medium">${Number(usdtLPBalance).toLocaleString()}</span>
+                                        <span className="text-white text-sm tracking-tighter font-medium font-mono">${Number(usdtLPBalance).toLocaleString()}</span>
                                     </div>
                                     <div className="col-span-2 text-right">
                                         <span className="text-primary text-sm tracking-tighter font-bold">{usdtPool?.apr ?? 0}%</span>
@@ -589,13 +618,13 @@ export default function PoolsPage() {
                                     <div className="col-span-2 flex justify-end gap-3">
                                         <button
                                             onClick={() => openDepositModal(selectedView === 'USC' ? CONTRACTS.SPOKES.SEPOLIA.USDT : (CONTRACTS.SPOKES as Record<string, any>)[selectedView].USDT, "USDT")}
-                                            className="bg-primary/90 hover:bg-primary text-primary-foreground px-4 py-1.5 rounded-sm font-black text-[10px] uppercase cursor-pointer"
+                                            className="bg-primary/90 hover:bg-primary text-primary-foreground px-4 py-1.5 rounded-sm font-black text-[10px] uppercase cursor-pointer transition-all active:scale-95"
                                         >
                                             Deposit
                                         </button>
                                         <button
                                             onClick={() => openWithdrawModal(selectedView === 'USC' ? CONTRACTS.SPOKES.SEPOLIA.USDT : (CONTRACTS.SPOKES as Record<string, any>)[selectedView].USDT, "USDT")}
-                                            className="border border-white/10 text-white/60 hover:text-white hover:bg-white/5 px-4 py-1.5 rounded-sm font-bold text-[10px] uppercase"
+                                            className="border border-white/10 text-white/60 hover:text-white hover:bg-white/5 px-4 py-1.5 rounded-sm font-bold text-[10px] uppercase transition-all active:scale-95"
                                         >
                                             Withdraw
                                         </button>

@@ -201,45 +201,57 @@ export function usePolaris() {
         }
     };
 
-    const getLocalVaultStats = async (tokenAddress: string, networkId: number) => {
+    const getUserTotalCollateral = async () => {
+        try {
+            if (!wallet?.address) return "0";
+            const { config, id } = getMasterConfig();
+            const poolManager = await getContract(config.POOL_MANAGER, ABIS.PoolManager, id, false);
+            const total = await poolManager.getUserTotalCollateral(wallet.address);
+            return formatUnits(total, 18);
+        } catch (error) {
+            console.error("Fetch total collateral failed:", error);
+            return "0";
+        }
+    };
+
+    const getTotalTVL = async () => {
+        try {
+            const { config, id } = getMasterConfig();
+            const poolManager = await getContract(config.POOL_MANAGER, ABIS.PoolManager, id, false);
+
+            // Get all whitelisted tokens
+            let totalTVL = BigInt(0);
+            let i = 0;
+            while (true) {
+                try {
+                    const tokenAddr = await poolManager.whitelistedTokens(i);
+                    const liquidity = await poolManager.getPoolLiquidity(tokenAddr);
+                    totalTVL += liquidity;
+                    i++;
+                } catch (e) {
+                    break; // End of array
+                }
+            }
+            return formatUnits(totalTVL, 18);
+        } catch (error) {
+            console.error("Fetch total TVL failed:", error);
+            return "0";
+        }
+    };
+
+    const getVaultPhysicalBalance = async (tokenAddress: string, networkId: number) => {
         try {
             const config = getSpokeConfig(networkId);
-            const vault = await getContract(config.LIQUIDITY_VAULT, ABIS.LiquidityVault, networkId, false);
-
-            // Get decimals
             const token = await getContract(tokenAddress, ABIS.MockERC20, networkId, false);
+            const balance = await token.balanceOf(config.LIQUIDITY_VAULT);
+
             let decimals = 18;
             try { decimals = Number(await token.decimals()); } catch (e) { }
 
-            const filter = vault.filters.LiquidityDeposited(null, tokenAddress);
-
-            // Limit block range to avoid RPC errors
-            const net = Object.values(NETWORKS).find(n => n.id === networkId);
-            if (!net) throw new Error("Network not found");
-            const provider = new JsonRpcProvider(net.rpc);
-            const currentBlock = await provider.getBlockNumber();
-            const fromBlock = Math.max(0, currentBlock - 2000);
-
-            const events = await vault.queryFilter(filter, fromBlock, currentBlock);
-
-            let totalLiquidity = BigInt(0);
-            let userLiquidity = BigInt(0);
-
-            events.forEach((event: any) => {
-                const { lender, amount } = event.args;
-                totalLiquidity += amount;
-                if (wallet?.address && lender.toLowerCase() === wallet.address.toLowerCase()) {
-                    userLiquidity += amount;
-                }
-            });
-
-            return {
-                total: formatUnits(totalLiquidity, decimals),
-                user: formatUnits(userLiquidity, decimals)
-            };
+            return formatUnits(balance, decimals);
         } catch (error) {
-            console.error("Fetch local vault stats failed:", error);
-            return { total: "0", user: "0" };
+            console.error("Fetch physical vault balance failed:", error);
+            return "0";
         }
     };
 
@@ -408,7 +420,9 @@ export function usePolaris() {
         getPoolLiquidity,
         getTokenBalance,
         getLPBalance,
-        getLocalVaultStats,
+        getUserTotalCollateral,
+        getTotalTVL,
+        getVaultPhysicalBalance,
         getScore,
         getCreditLimit,
         createLoan,

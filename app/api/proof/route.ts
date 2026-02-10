@@ -129,7 +129,21 @@ export async function GET(request: NextRequest) {
 
         return NextResponse.json(proof);
     } catch (error: any) {
-        console.error("[PROOF-API] Error:", error);
+        console.error("[PROOF-API] Error:", error.message);
+
+        if (error.message === "BLOCK_NOT_ATTESTED") {
+            // Update status in DB so the real-time monitor shows it
+            await supabase
+                .from('deposits')
+                .update({ status: 'WaitingAttestation' })
+                .eq('tx_hash', txHash);
+
+            return NextResponse.json({
+                status: "WAITING_ATTESTATION",
+                message: "Source block not yet attested by Creditcoin validators. This can take 10-15 minutes."
+            });
+        }
+
         return NextResponse.json(
             { error: error.message || "Failed to generate proof" },
             { status: 500 }

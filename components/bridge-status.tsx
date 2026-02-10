@@ -18,6 +18,7 @@ export function BridgeStatus({ address }: BridgeStatusProps) {
             case 'FAILED': return <AlertCircle className="w-3 h-3 text-red-500" />;
             case 'DETECTED':
             case 'BUILDING_PROOF':
+            case 'WAITING_ATTESTATION':
             case 'SUBMITTED':
             case 'VERIFIED':
                 return <Clock className="w-3 h-3 text-yellow-500 animate-pulse" />;
@@ -29,7 +30,8 @@ export function BridgeStatus({ address }: BridgeStatusProps) {
         switch (status) {
             case 'DETECTED': return 'Deposit Detected';
             case 'BUILDING_PROOF': return 'Building Proof';
-            case 'SUBMITTED': return 'Verifying on USC (15m)';
+            case 'WAITING_ATTESTATION': return 'Waiting for Creditcoin Attestation (10m)';
+            case 'SUBMITTED': return 'Verifying on USC Hub (5m)';
             case 'VERIFIED': return 'Verified (Finalizing)';
             case 'COMPLETED': return 'Ready on USC Hub';
             default: return status;
@@ -51,7 +53,7 @@ export function BridgeStatus({ address }: BridgeStatusProps) {
                             <div className="flex flex-col gap-0.5">
                                 <div className="flex items-center gap-2">
                                     <span className="text-[10px] font-bold text-white uppercase tracking-tight">
-                                        Bridging {Number(tx.amount) / 1e18} {tx.token_address.toLowerCase().includes('0296') ? 'USDC' : 'USDT'}
+                                        Bridging {tx.amount} {tx.token_address.toLowerCase().includes('a715') || tx.token_address.toLowerCase().includes('8437') ? 'USDC' : 'USDT'}
                                     </span>
                                     <span className="text-[8px] text-white/30 font-mono">{tx.source_tx_hash.slice(0, 6)}...</span>
                                 </div>

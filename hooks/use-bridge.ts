@@ -8,13 +8,20 @@ export interface BridgeTransaction {
     amount: string;
     source_tx_hash: string;
     usc_query_id: string;
-    status: 'DETECTED' | 'BUILDING_PROOF' | 'SUBMITTED' | 'VERIFIED' | 'COMPLETED' | 'FAILED';
+    status: 'DETECTED' | 'BUILDING_PROOF' | 'WAITING_ATTESTATION' | 'SUBMITTED' | 'VERIFIED' | 'COMPLETED' | 'FAILED';
     created_at: string;
 }
 
 export function useBridge(userAddress: string | undefined) {
     const [transactions, setTransactions] = useState<BridgeTransaction[]>([]);
     const [loading, setLoading] = useState(true);
+
+    const mapStatus = (status: string) => {
+        if (status === 'ProofGenerated') return 'VERIFIED';
+        if (status === 'Synced') return 'COMPLETED';
+        if (status === 'WaitingAttestation') return 'WAITING_ATTESTATION';
+        return 'BUILDING_PROOF';
+    };
 
     useEffect(() => {
         if (!userAddress) return;
@@ -35,7 +42,7 @@ export function useBridge(userAddress: string | undefined) {
                     amount: d.amount ? d.amount.toString() : "0",
                     source_tx_hash: d.tx_hash,
                     usc_query_id: "",
-                    status: (d.status === 'ProofGenerated' ? 'VERIFIED' : (d.status === 'Synced' ? 'COMPLETED' : 'BUILDING_PROOF')) as BridgeTransaction['status'],
+                    status: mapStatus(d.status) as BridgeTransaction['status'],
                     created_at: d.created_at
                 }));
                 setTransactions(formatted);
@@ -60,7 +67,7 @@ export function useBridge(userAddress: string | undefined) {
                         amount: d.amount ? d.amount.toString() : "0",
                         source_tx_hash: d.tx_hash,
                         usc_query_id: "",
-                        status: d.status === 'ProofGenerated' ? 'VERIFIED' : (d.status === 'Synced' ? 'COMPLETED' : 'BUILDING_PROOF'),
+                        status: mapStatus(d.status) as BridgeTransaction['status'],
                         created_at: d.created_at
                     };
 
