@@ -50,6 +50,8 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({ error: "Missing txHash" }, { status: 400 });
     }
 
+    console.log(`[API/PROOF] GET request for ${txHash} on chain ${chainKeyParam}`);
+
     let chainKey = chainKeyParam ? parseInt(chainKeyParam, 10) : 1; // Default to Sepolia (1)
 
     // Map Standard Chain IDs to Prover Keys

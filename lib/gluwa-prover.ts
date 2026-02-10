@@ -32,19 +32,19 @@ export async function generateProofFor(
         // Now that we have the block number, we can setup the chain info provider
         const info = new chainInfo.PrecompileChainInfoProvider(creditcoinRpc);
 
-        console.log(`[PROVER] Checking if block ${blockNumber} is attested on Creditcoin...`);
+        console.log(`[PROVER] Checking attestation for block ${blockNumber} on chain ${chainKey}...`);
 
-        // We do a single check instead of a 5-minute wait to avoid API timeouts.
-        // The frontend will poll us anyway.
         const latest = await info.getLatestAttestedHeightAndHash(chainKey);
+        console.log(`[PROVER] Hub Latest Attested: ${latest.height} (Exists: ${latest.exists})`);
+
         const isAttested = latest.exists && latest.height >= blockNumber;
 
         if (!isAttested) {
-            console.log(`[PROVER] Block ${blockNumber} not yet attested. Latest is ${latest.height}. Attestation can take 10-15 minutes.`);
+            console.log(`[PROVER] 🛑 Block ${blockNumber} NOT ATTESTED. Throwing BLOCK_NOT_ATTESTED.`);
             throw new Error("BLOCK_NOT_ATTESTED");
         }
 
-        console.log(`[PROVER] Block ${blockNumber} attested! Generating proof...`);
+        console.log(`[PROVER] ✅ Block ${blockNumber} is attested! Proceeding to Prover API...`);
 
         // We can now proceed to generate the proof using the prover API
         const proofGenApi = new proofGenerator.api.ProverAPIProofGenerator(chainKey, proofServerUrl);
