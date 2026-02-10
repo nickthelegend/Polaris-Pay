@@ -310,7 +310,19 @@ export default function PoolsPage() {
             }
 
             toast.info("Submitting Proof to Master Chain...");
-            await addLiquidityFromProof(generatedProof);
+            const receipt = await addLiquidityFromProof(generatedProof);
+
+            // Record the HUB hash so it shows up in explorer links
+            try {
+                await fetch("/api/proof", {
+                    method: "POST",
+                    body: JSON.stringify({
+                        txHash: lastDepositTx, // The source tx
+                        hubTxHash: receipt.hash,
+                        status: 'Synced'
+                    })
+                });
+            } catch (e) { console.warn("DB Update failed", e); }
 
             toast.success("✅ Protocol Synced!");
             setIsProofViewerOpen(false);

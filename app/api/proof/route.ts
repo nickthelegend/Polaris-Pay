@@ -13,12 +13,26 @@ import { supabase } from "@/lib/supabase";
 export async function POST(req: NextRequest) {
     try {
         const body = await req.json();
-        const { txHash, chainKey, userAddress, amount, tokenAddress } = body;
+        const { txHash, chainKey, userAddress, amount, tokenAddress, hubTxHash, status } = body;
 
         if (!txHash) return NextResponse.json({ error: "Missing txHash" }, { status: 400 });
 
-        // Insert into Supabase 'deposits' table
-        // We use upsert to handle potential duplicates idempotently
+        // If hubTxHash is provided, we are updating an existing deposit
+        if (hubTxHash) {
+            const { error } = await supabase
+                .from('deposits')
+                .update({
+                    hub_tx_hash: hubTxHash,
+                    status: status || 'Synced',
+                    updated_at: new Date().toISOString()
+                })
+                .eq('tx_hash', txHash);
+
+            if (error) throw error;
+            return NextResponse.json({ success: true, message: "Hub hash updated" });
+        }
+
+        // Otherwise, insert/upsert new deposit
         const { error } = await supabase
             .from('deposits')
             .upsert({

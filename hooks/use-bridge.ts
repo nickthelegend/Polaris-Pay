@@ -7,6 +7,7 @@ export interface BridgeTransaction {
     token_address: string;
     amount: string;
     source_tx_hash: string;
+    hub_tx_hash?: string;
     usc_query_id: string;
     status: 'DETECTED' | 'BUILDING_PROOF' | 'WAITING_ATTESTATION' | 'SUBMITTED' | 'VERIFIED' | 'COMPLETED' | 'FAILED';
     created_at: string;
@@ -17,8 +18,8 @@ export function useBridge(userAddress: string | undefined) {
     const [loading, setLoading] = useState(true);
 
     const mapStatus = (status: string) => {
-        if (status === 'ProofGenerated') return 'VERIFIED';
         if (status === 'Synced') return 'COMPLETED';
+        if (status === 'ProofGenerated') return 'VERIFIED';
         if (status === 'WaitingAttestation') return 'WAITING_ATTESTATION';
         return 'BUILDING_PROOF';
     };
@@ -41,6 +42,7 @@ export function useBridge(userAddress: string | undefined) {
                     token_address: d.token_address || "0x...", // Fallback
                     amount: d.amount ? d.amount.toString() : "0",
                     source_tx_hash: d.tx_hash,
+                    hub_tx_hash: d.hub_tx_hash,
                     usc_query_id: "",
                     status: mapStatus(d.status) as BridgeTransaction['status'],
                     created_at: d.created_at
@@ -66,6 +68,7 @@ export function useBridge(userAddress: string | undefined) {
                         token_address: d.token_address || "0x...",
                         amount: d.amount ? d.amount.toString() : "0",
                         source_tx_hash: d.tx_hash,
+                        hub_tx_hash: d.hub_tx_hash,
                         usc_query_id: "",
                         status: mapStatus(d.status) as BridgeTransaction['status'],
                         created_at: d.created_at

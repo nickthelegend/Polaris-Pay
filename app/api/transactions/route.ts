@@ -52,6 +52,7 @@ export async function GET() {
     asset: d.token_address?.toLowerCase().includes("a715") ? "USDC" : "USDT", // Map back from addr if possible
     created_at: d.created_at,
     tx_hash: d.tx_hash,
+    hub_tx_hash: d.hub_tx_hash,
     status: d.status,
     chain_id: d.chain_key
   }))

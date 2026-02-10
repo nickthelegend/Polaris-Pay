@@ -49,6 +49,11 @@ export default function TransactionsPage() {
 
   const getExplorerLink = (item: any) => {
     if (item.type === 'deposit') {
+      // If it's a deposit and we have a Hub hash, link to Hub
+      if (item.hub_tx_hash) {
+        return `${NETWORKS.USC.explorer}/tx/${item.hub_tx_hash}`;
+      }
+      // Otherwise link to source chain
       const chain = item.chain_id === 11155111 ? NETWORKS.SEPOLIA : NETWORKS.USC;
       return `${chain.explorer}/tx/${item.tx_hash}`;
     }

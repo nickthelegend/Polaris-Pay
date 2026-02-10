@@ -109,6 +109,18 @@ export function BridgeStatus({ address }: BridgeStatusProps) {
                                 >
                                     <ExternalLink className="w-3 h-3 text-white/40" />
                                 </a>
+                                {tx.hub_tx_hash && (
+                                    <a
+                                        href={`https://explorer.usc-testnet2.creditcoin.network/tx/${tx.hub_tx_hash}`}
+                                        target="_blank"
+                                        className="p-1.5 hover:bg-white/10 rounded-sm transition-colors"
+                                        title="View on USC Hub"
+                                    >
+                                        <div className="w-3 h-3 rounded-full bg-primary/20 flex items-center justify-center">
+                                            <div className="w-1.5 h-1.5 rounded-full bg-primary" />
+                                        </div>
+                                    </a>
+                                )}
                             </div>
                         </div>
                     ))
