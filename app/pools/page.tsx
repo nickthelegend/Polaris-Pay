@@ -55,6 +55,7 @@ const getChainIcon = (chain: string) => {
 
 export default function PoolsPage() {
     const {
+        address,
         depositLiquidity,
         addLiquidityFromProof,
         requestWithdrawal,
@@ -70,8 +71,7 @@ export default function PoolsPage() {
         createLoan,
         repayLoan,
         getLoans,
-        mintTokens,
-        address
+        mintTokens
     } = usePolaris();
 
     // Liquidity & Balance State
@@ -204,7 +204,13 @@ export default function PoolsPage() {
             try {
                 await fetch("/api/proof", {
                     method: "POST",
-                    body: JSON.stringify({ txHash: receipt.hash, chainKey: NETWORKS[depositTarget.chainKey].id })
+                    body: JSON.stringify({
+                        txHash: receipt.hash,
+                        chainKey: NETWORKS[depositTarget.chainKey].id,
+                        userAddress: address,
+                        amount: depositAmount,
+                        tokenAddress: depositTarget.token
+                    })
                 });
                 toast.success("Deposit recorded. Syncing in background...");
             } catch (e) {
@@ -225,7 +231,7 @@ export default function PoolsPage() {
         try {
             // Polling Logic
             let attempts = 0;
-            const maxAttempts = 20; // 100 seconds
+            const maxAttempts = 240; // 20 minutes (Attestation can take 10-15 mins)
             let proof = null;
 
             toast.info("⏳ Syncing Protocol State... (You can browse freely)");

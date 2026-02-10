@@ -22,12 +22,24 @@ export function useBridge(userAddress: string | undefined) {
         // Fetch existing
         const fetchTxs = async () => {
             const { data } = await supabase
-                .from('bridge_transactions')
+                .from('deposits')
                 .select('*')
                 .eq('user_address', userAddress)
                 .order('created_at', { ascending: false });
 
-            if (data) setTransactions(data);
+            if (data) {
+                const formatted = data.map((d: any) => ({
+                    id: d.id.toString(),
+                    user_address: d.user_address,
+                    token_address: d.token_address || "0x...", // Fallback
+                    amount: d.amount ? d.amount.toString() : "0",
+                    source_tx_hash: d.tx_hash,
+                    usc_query_id: "",
+                    status: (d.status === 'ProofGenerated' ? 'VERIFIED' : (d.status === 'Synced' ? 'COMPLETED' : 'BUILDING_PROOF')) as BridgeTransaction['status'],
+                    created_at: d.created_at
+                }));
+                setTransactions(formatted);
+            }
             setLoading(false);
         };
 
@@ -35,11 +47,23 @@ export function useBridge(userAddress: string | undefined) {
 
         // Listen for real-time changes
         const channel = supabase
-            .channel('bridge_changes')
+            .channel('deposits_changes')
             .on('postgres_changes',
-                { event: '*', schema: 'public', table: 'bridge_transactions', filter: `user_address=eq.${userAddress}` },
+                { event: '*', schema: 'public', table: 'deposits', filter: `user_address=eq.${userAddress}` },
+
                 (payload) => {
-                    const updatedTx = payload.new as BridgeTransaction;
+                    const d = payload.new as any;
+                    const updatedTx: BridgeTransaction = {
+                        id: d.id.toString(),
+                        user_address: d.user_address,
+                        token_address: d.token_address || "0x...",
+                        amount: d.amount ? d.amount.toString() : "0",
+                        source_tx_hash: d.tx_hash,
+                        usc_query_id: "",
+                        status: d.status === 'ProofGenerated' ? 'VERIFIED' : (d.status === 'Synced' ? 'COMPLETED' : 'BUILDING_PROOF'),
+                        created_at: d.created_at
+                    };
+
                     setTransactions((prev) => {
                         const exists = prev.find(t => t.id === updatedTx.id);
                         if (exists) {

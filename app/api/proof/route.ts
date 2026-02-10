@@ -13,7 +13,7 @@ import { supabase } from "@/lib/supabase";
 export async function POST(req: NextRequest) {
     try {
         const body = await req.json();
-        const { txHash, chainKey } = body;
+        const { txHash, chainKey, userAddress, amount, tokenAddress } = body;
 
         if (!txHash) return NextResponse.json({ error: "Missing txHash" }, { status: 400 });
 
@@ -24,6 +24,9 @@ export async function POST(req: NextRequest) {
             .upsert({
                 tx_hash: txHash,
                 chain_key: Number(chainKey) || 1,
+                user_address: userAddress,
+                amount: amount,
+                token_address: tokenAddress,
                 status: 'PENDING',
                 created_at: new Date().toISOString()
             }, { onConflict: 'tx_hash' });
