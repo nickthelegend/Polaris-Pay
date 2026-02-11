@@ -151,12 +151,12 @@ export default function CheckoutPage() {
                             Return to Merchant
                         </a>
                     ) : (
-                        <Link
-                            href="/pools"
-                            className="w-full bg-white/5 border border-white/10 py-3 rounded text-[10px] font-black uppercase text-white hover:bg-white/10 transition-all focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:ring-offset-background"
+                        <button
+                            onClick={() => window.close()}
+                            className="w-full bg-white/5 border border-white/10 py-3 rounded text-[10px] font-black uppercase text-white hover:bg-white/10 transition-all"
                         >
-                            Go to Dashboard
-                        </Link>
+                            Close Checkout
+                        </button>
                     )}
                 </div>
             </div>
@@ -208,18 +208,23 @@ export default function CheckoutPage() {
                         <Zap className="w-4 h-4 text-primary animate-pulse" />
                     </div>
 
-                    <div className="flex flex-col gap-3">
-                        <button
-                            onClick={authenticated ? handlePayment : login}
-                            disabled={paying || bill.status === 'paid'}
-                            className={`w-full py-4 rounded font-black text-xs uppercase tracking-[0.2em] transition-all flex items-center justify-center gap-2 ${paying || bill.status === 'paid' ? 'bg-zinc-800 text-white/20 cursor-not-allowed' : 'bg-primary text-black hover:scale-[1.02] shadow-[0_0_20px_-5px_rgba(var(--primary),0.5)]'
-                                }`}
-                        >
-                            {paying ? <Loader2 className="w-4 h-4 animate-spin" /> : authenticated ? <Zap className="w-4 h-4" /> : <ShieldCheck className="w-4 h-4" />}
-                            {paying ? 'Processing...' : !authenticated ? 'Connect_Wallet_To_Pay' : bill.status === 'paid' ? 'Already_Settled' : 'Authorize_Payment'}
-                        </button>
-                        <p className="text-[9px] text-center text-white/20 uppercase font-bold tracking-widest">
-                            Transaction secured by Creditcoin Hub Native Verification
+                    <div className="flex flex-col gap-4">
+                        <div className="flex flex-col gap-2">
+                            <button
+                                onClick={authenticated ? handlePayment : login}
+                                disabled={paying || bill.status === 'paid'}
+                                className={`w-full py-4 rounded font-black text-xs uppercase tracking-[0.2em] transition-all flex items-center justify-center gap-2 ${paying || bill.status === 'paid' ? 'bg-zinc-800 text-white/20 cursor-not-allowed' : 'bg-primary text-black hover:scale-[1.02] shadow-[0_0_20px_-5px_rgba(var(--primary),0.5)]'
+                                    }`}
+                            >
+                                {paying ? <Loader2 className="w-4 h-4 animate-spin" /> : authenticated ? <ShieldCheck className="w-4 h-4" /> : <ShieldCheck className="w-4 h-4" />}
+                                {paying ? 'Authorizing...' : !authenticated ? 'Connect_Wallet_To_Pay' : bill.status === 'paid' ? 'Already_Settled' : 'Give_Consent_&_Pay'}
+                            </button>
+                            <p className="text-[8px] text-center text-white/20 uppercase font-bold tracking-[0.1em] leading-relaxed">
+                                By clicking above, you authorize Polaris Protocol to reserve ${bill.amount} from your Creditcoin USC Hub credit limit for immediate settlement.
+                            </p>
+                        </div>
+                        <p className="text-[9px] text-center text-white/20 uppercase font-bold tracking-widest flex items-center justify-center gap-2">
+                            Secured by Creditcoin-Native Verification
                         </p>
                     </div>
                 </div>
