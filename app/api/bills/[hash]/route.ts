@@ -3,9 +3,9 @@ import { supabase } from "@/lib/supabase";
 
 export async function GET(
     req: Request,
-    { params }: { params: { hash: string } }
+    { params }: { params: Promise<{ hash: string }> }
 ) {
-    const hash = params.hash;
+    const { hash } = await params;
 
     if (!hash) {
         return NextResponse.json({ error: "Missing hash" }, { status: 400 });

@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react"
 import { useParams, useRouter } from "next/navigation"
 import { usePolaris } from "@/hooks/use-polaris"
+import { usePrivy } from "@privy-io/react-auth"
 import { ShieldCheck, Zap, AlertCircle, CheckCircle2, Loader2, ArrowLeft } from "lucide-react"
 import { toast } from "react-toastify"
 import Link from "next/link"
@@ -18,6 +19,7 @@ export default function CheckoutPage() {
         getMasterConfig,
         loading: polarisLoading
     } = usePolaris()
+    const { login } = usePrivy()
 
     const [bill, setBill] = useState<any>(null)
     const [fetching, setFetching] = useState(true)
@@ -208,13 +210,13 @@ export default function CheckoutPage() {
 
                     <div className="flex flex-col gap-3">
                         <button
-                            onClick={handlePayment}
+                            onClick={authenticated ? handlePayment : login}
                             disabled={paying || bill.status === 'paid'}
                             className={`w-full py-4 rounded font-black text-xs uppercase tracking-[0.2em] transition-all flex items-center justify-center gap-2 ${paying || bill.status === 'paid' ? 'bg-zinc-800 text-white/20 cursor-not-allowed' : 'bg-primary text-black hover:scale-[1.02] shadow-[0_0_20px_-5px_rgba(var(--primary),0.5)]'
                                 }`}
                         >
-                            {paying ? <Loader2 className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4" />}
-                            {paying ? 'Processing...' : bill.status === 'paid' ? 'Already_Settled' : 'Authorize_Payment'}
+                            {paying ? <Loader2 className="w-4 h-4 animate-spin" /> : authenticated ? <Zap className="w-4 h-4" /> : <ShieldCheck className="w-4 h-4" />}
+                            {paying ? 'Processing...' : !authenticated ? 'Connect_Wallet_To_Pay' : bill.status === 'paid' ? 'Already_Settled' : 'Authorize_Payment'}
                         </button>
                         <p className="text-[9px] text-center text-white/20 uppercase font-bold tracking-widest">
                             Transaction secured by Creditcoin Hub Native Verification
