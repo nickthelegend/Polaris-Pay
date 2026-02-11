@@ -20,6 +20,7 @@ import {
     ChevronDown,
     Info
 } from "lucide-react"
+import { Skeleton } from "@/components/ui/skeleton"
 
 import {
     DropdownMenu,
@@ -97,6 +98,7 @@ export default function PoolsPage() {
 
     // Default to USC View, but allows selecting which SPOKE to view
     const [selectedView, setSelectedView] = useState<keyof typeof NETWORKS>("USC");
+    const [refreshing, setRefreshing] = useState(false);
 
     // Credit & Loan State
     const [userScore, setUserScore] = useState("0");
@@ -134,11 +136,31 @@ export default function PoolsPage() {
     const [isProofViewerOpen, setIsProofViewerOpen] = useState(false);
     const [generatedProof, setGeneratedProof] = useState<any>(null);
 
-    const { data: poolsData } = useSWR("/api/pools", fetcher)
+    const { data: poolsData, isLoading: isDbLoading } = useSWR("/api/pools", fetcher)
     const pools = poolsData?.pools ?? []
 
-    const usdcPool = pools.find((p: any) => p.name === 'USDC_VAULT' || p.name === 'USDC')
-    const usdtPool = pools.find((p: any) => p.name === 'USDT_VAULT' || p.name === 'USDT')
+    const usdcPool = pools.find((p: any) => p.name === 'USDC_VAULT')
+    const usdtPool = pools.find((p: any) => p.name === 'USDT_VAULT')
+
+    // Initial load from Supabase for instant rendering
+    useEffect(() => {
+        if (pools.length > 0) {
+            console.log("[POLARIS] Initializing state from Supabase cache...");
+            const up = pools.find((p: any) => p.name === 'USDC_VAULT');
+            const ut = pools.find((p: any) => p.name === 'USDT_VAULT');
+
+            if (up) {
+                setUsdcPhysicalLiq(up.physical_balance?.toString() || "0");
+                setUsdcLiquidity(up.tvl?.toString() || "0");
+                setUsdcLPBalance(up.lp_balance?.toString() || "0");
+            }
+            if (ut) {
+                setUsdtPhysicalLiq(ut.physical_balance?.toString() || "0");
+                setUsdtLiquidity(ut.tvl?.toString() || "0");
+                setUsdtLPBalance(ut.lp_balance?.toString() || "0");
+            }
+        }
+    }, [poolsData]);
 
     useEffect(() => {
         if (authenticated) {
@@ -146,7 +168,17 @@ export default function PoolsPage() {
         }
     }, [authenticated, selectedView]);
 
+    const savePoolCache = async (name: string, data: any) => {
+        try {
+            await fetch("/api/pools", {
+                method: "POST",
+                body: JSON.stringify({ name, ...data })
+            });
+        } catch (e) { console.warn("Cache update failed", e); }
+    };
+
     const refreshData = async () => {
+        setRefreshing(true);
         try {
             console.log(`[POLARIS] Refreshing data for view: ${selectedView}...`);
 
@@ -157,7 +189,7 @@ export default function PoolsPage() {
             const aggregatedTVL = await getTotalTVL();
             setTotalTVL(aggregatedTVL);
 
-            // 2. Score & Loans (Always Hub context)
+            // 2. Score & Loans
             const score = await getScore();
             setUserScore(score);
             const limit = await getCreditLimit();
@@ -171,21 +203,34 @@ export default function PoolsPage() {
             const net = NETWORKS[selectedView];
             const spokeConfig = (CONTRACTS.SPOKES as any)[selectedView];
 
-            // In USC view, we show Sepolia tokens as a default or sum? 
-            // For now, let's make it smarter: Hub view shows aggregate, Spoke view shows spoke funds recorded on Hub
             if (selectedView === "USC") {
-                // Sum of all whitelisted assets for TVL
+                // HUB VIEW: Show Aggregate Stats from Master Hub
+                // Get the total summed collateral from the Hub
+                const hubEquity = await getUserTotalCollateral();
+                setTotalEquity(hubEquity);
+
+                // For the specific row, we show the sum across all whitelisted spokes
                 const usdcHubLiq = await getPoolLiquidity(CONTRACTS.SPOKES.SEPOLIA.USDC);
                 const usdtHubLiq = await getPoolLiquidity(CONTRACTS.SPOKES.SEPOLIA.USDT);
                 setUsdcLiquidity(usdcHubLiq);
                 setUsdtLiquidity(usdtHubLiq);
 
+                // VERY IMPORTANT: Hub View "Your Deposit" is the Hub's record of your cross-chain LP
                 const usdcLP = await getLPBalance(CONTRACTS.SPOKES.SEPOLIA.USDC);
                 const usdtLP = await getLPBalance(CONTRACTS.SPOKES.SEPOLIA.USDT);
                 setUsdcLPBalance(usdcLP);
                 setUsdtLPBalance(usdtLP);
+
+                // Hub physical reserves = Total across all spokes
+                const physUsdc = await getVaultPhysicalBalance(CONTRACTS.SPOKES.SEPOLIA.USDC, NETWORKS.SEPOLIA.id);
+                const physUsdt = await getVaultPhysicalBalance(CONTRACTS.SPOKES.SEPOLIA.USDT, NETWORKS.SEPOLIA.id);
+                setUsdcPhysicalLiq(physUsdc);
+                setUsdtPhysicalLiq(physUsdt);
+
+                savePoolCache("USDC_VAULT", { tvl: usdcHubLiq, lp_balance: usdcLP, physical_balance: physUsdc });
+                savePoolCache("USDT_VAULT", { tvl: usdtHubLiq, lp_balance: usdtLP, physical_balance: physUsdt });
             } else {
-                // Hub's record of this specific spoke's tokens
+                // SPOKE VIEW: Show Hub's record of this specific spoke's tokens
                 const usdcLiq = await getPoolLiquidity(spokeConfig.USDC);
                 const usdtLiq = await getPoolLiquidity(spokeConfig.USDT);
                 setUsdcLiquidity(usdcLiq);
@@ -207,16 +252,17 @@ export default function PoolsPage() {
                 const ubUsdt = await getTokenBalance(spokeConfig.USDT, net.id);
                 setUsdcUserBalance(ubUsdc);
                 setUsdtUserBalance(ubUsdt);
+
+                // Update Cache for Spoke View
+                savePoolCache("USDC_VAULT", { tvl: usdcLiq, lp_balance: usdcLP, physical_balance: physUsdc });
+                savePoolCache("USDT_VAULT", { tvl: usdtLiq, lp_balance: usdtLP, physical_balance: physUsdt });
             }
 
-            if (selectedView === "USC") {
-                setUsdcPhysicalLiq("0");
-                setUsdtPhysicalLiq("0");
-            }
-
-            console.log(`[SCORE]: ${score}`);
+            console.log(`[SCORE]: ${userScore}`);
         } catch (err) {
             console.error("Refresh failed:", err);
+        } finally {
+            setRefreshing(false);
         }
     };
 
@@ -486,13 +532,17 @@ export default function PoolsPage() {
                             <div className="p-6 flex flex-col gap-1">
                                 <span className="text-[10px] text-white/40 tracking-wider uppercase">Aggregated_Value_Locked</span>
                                 <div className="flex items-baseline gap-2 text-white">
-                                    <span className="text-white text-3xl font-bold tracking-tighter">${Number(totalTVL).toLocaleString()}</span>
+                                    <span className="text-white text-3xl font-bold tracking-tighter">
+                                        {refreshing ? <Skeleton className="h-8 w-32" /> : `$${Number(totalTVL).toLocaleString()}`}
+                                    </span>
                                 </div>
                             </div>
                             <div className="p-6 flex flex-col gap-1">
                                 <span className="text-[10px] text-white/40 tracking-wider uppercase">Your_Equity</span>
-                                <div className="flex items-baseline gap-2">
-                                    <span className="text-white text-3xl font-bold tracking-tighter">${Number(totalEquity).toLocaleString()}</span>
+                                <div className="flex items-baseline gap-2 text-white">
+                                    <span className="text-white text-3xl font-bold tracking-tighter">
+                                        {refreshing ? <Skeleton className="h-8 w-32" /> : `$${Number(totalEquity).toLocaleString()}`}
+                                    </span>
                                 </div>
                             </div>
                             <div className="p-6 flex flex-col gap-1">
@@ -524,7 +574,9 @@ export default function PoolsPage() {
                             </div>
                             <div className="flex flex-col gap-1 z-10">
                                 <span className="text-[10px] text-white/40 tracking-wider uppercase">Combined_Credit_Limit</span>
-                                <span className="text-white text-xl font-bold tracking-tight">${Number(creditLimit).toLocaleString()} USDC</span>
+                                <span className="text-white text-xl font-bold tracking-tight">
+                                    {loading ? <Skeleton className="h-6 w-32" /> : `$${Number(creditLimit).toLocaleString()} USDC`}
+                                </span>
                             </div>
                             <button
                                 onClick={() => setIsLoanOpen(true)}
@@ -632,10 +684,14 @@ export default function PoolsPage() {
                                         </div>
                                     </div>
                                     <div className="col-span-2 text-right">
-                                        <span className="text-primary/80 text-sm tracking-tighter font-bold font-mono">${Number(usdcPhysicalLiq).toLocaleString()}</span>
+                                        <span className="text-primary/80 text-sm tracking-tighter font-bold font-mono">
+                                            {refreshing ? <Skeleton className="h-4 w-16 ml-auto" /> : `$${Number(usdcPhysicalLiq).toLocaleString()}`}
+                                        </span>
                                     </div>
                                     <div className="col-span-2 text-right">
-                                        <span className="text-white text-sm tracking-tighter font-medium font-mono">${Number(usdcLPBalance).toLocaleString()}</span>
+                                        <span className="text-white text-sm tracking-tighter font-medium font-mono">
+                                            {refreshing ? <Skeleton className="h-4 w-16 ml-auto" /> : `$${Number(usdcLPBalance).toLocaleString()}`}
+                                        </span>
                                     </div>
                                     <div className="col-span-2 text-right">
                                         <span className="text-primary text-sm tracking-tighter font-bold">{usdcPool?.apr ?? 0}%</span>
@@ -671,10 +727,14 @@ export default function PoolsPage() {
                                         </div>
                                     </div>
                                     <div className="col-span-2 text-right">
-                                        <span className="text-primary/80 text-sm tracking-tighter font-bold font-mono">${Number(usdtPhysicalLiq).toLocaleString()}</span>
+                                        <span className="text-primary/80 text-sm tracking-tighter font-bold font-mono">
+                                            {refreshing ? <Skeleton className="h-4 w-16 ml-auto" /> : `$${Number(usdtPhysicalLiq).toLocaleString()}`}
+                                        </span>
                                     </div>
                                     <div className="col-span-2 text-right">
-                                        <span className="text-white text-sm tracking-tighter font-medium font-mono">${Number(usdtLPBalance).toLocaleString()}</span>
+                                        <span className="text-white text-sm tracking-tighter font-medium font-mono">
+                                            {refreshing ? <Skeleton className="h-4 w-16 ml-auto" /> : `$${Number(usdtLPBalance).toLocaleString()}`}
+                                        </span>
                                     </div>
                                     <div className="col-span-2 text-right">
                                         <span className="text-primary text-sm tracking-tighter font-bold">{usdtPool?.apr ?? 0}%</span>
