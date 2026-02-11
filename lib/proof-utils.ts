@@ -21,17 +21,24 @@ export const ProofUtils = {
      * Formats raw proof data into the protocol's expected format
      */
     formatProof: (raw: any): NativeQueryProof => {
+        // Handle Gluwa API Response Format (data.data) vs. Flat format
+        const data = raw.data || raw;
+
         return {
-            chainKey: Number(raw.chainKey),
-            blockHeight: Number(raw.blockHeight),
-            encodedTransaction: raw.encodedTransaction,
-            merkleRoot: raw.merkleRoot,
-            siblings: raw.siblings.map((s: any) => ({
-                hash: s.hash,
-                isLeft: !!s.isLeft
-            })),
-            lowerEndpointDigest: raw.lowerEndpointDigest,
-            continuityRoots: raw.continuityRoots || []
+            chainKey: Number(data.chainKey || 1),
+            blockHeight: Number(data.headerNumber || data.blockHeight || 0),
+            encodedTransaction: data.txBytes || data.encodedTransaction || "0x",
+            merkleRoot: data.merkleProof?.root || data.merkleRoot || ethers.ZeroHash,
+            siblings: (data.merkleProof?.siblings || data.siblings || []).map((s: any) => {
+                if (Array.isArray(s)) return { hash: s[0], isLeft: !!s[1] };
+                if (typeof s === 'string') return { hash: s, isLeft: false }; // Fallback for raw hashes
+                return {
+                    hash: s.hash,
+                    isLeft: !!s.isLeft
+                };
+            }),
+            lowerEndpointDigest: data.continuityProof?.lowerEndpointDigest || data.lowerEndpointDigest || ethers.ZeroHash,
+            continuityRoots: data.continuityProof?.roots || data.continuityRoots || []
         };
     },
 

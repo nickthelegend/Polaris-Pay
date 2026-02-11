@@ -31,7 +31,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 
 import { usePolaris } from "@/hooks/use-polaris"
-import { CONTRACTS, NETWORKS } from "@/lib/contracts"
+import { CONTRACTS, NETWORKS, ABIS } from "@/lib/contracts"
 import { useState, useEffect } from "react"
 import { toast } from "react-toastify"
 import { BridgeStatus } from "@/components/bridge-status"
@@ -80,6 +80,8 @@ export default function PoolsPage() {
         createLoan,
         repayLoan,
         getLoans,
+        getMasterConfig,
+        getContract,
         mintTokens
     } = usePolaris();
 
@@ -122,13 +124,13 @@ export default function PoolsPage() {
     const [withdrawAmount, setWithdrawAmount] = useState("50");
     const [withdrawTarget, setWithdrawTarget] = useState<{ token: string, symbol: string } | null>(null);
     const [lastDepositTx, setLastDepositTx] = useState<string | null>(null);
-    const [triedSync, setTriedSync] = useState(false);
+    const [triedSync, setTriedSync] = useState<string | null>(null);
 
     // Deep link sync
     useEffect(() => {
-        if (syncParam && authenticated && !triedSync) {
+        if (syncParam && authenticated && triedSync !== syncParam) {
             console.log(`[POLARIS] Deep-link sync triggering for: ${syncParam}`);
-            setTriedSync(true);
+            setTriedSync(syncParam);
             autoSyncProof(syncParam, "SEPOLIA");
         }
     }, [syncParam, authenticated, triedSync]);
@@ -136,6 +138,13 @@ export default function PoolsPage() {
     // Proof Viewer State
     const [isProofViewerOpen, setIsProofViewerOpen] = useState(false);
     const [generatedProof, setGeneratedProof] = useState<any>(null);
+
+    // When modal closes, we can allow re-trying if needed
+    useEffect(() => {
+        if (!isProofViewerOpen) {
+            setTriedSync(null); // Allow re-triggering the same hash if clicked again
+        }
+    }, [isProofViewerOpen]);
 
     const { data: poolsData, isLoading: isDbLoading } = useSWR("/api/pools", fetcher)
     const { data: txData } = useSWR("/api/transactions", fetcher)
@@ -385,36 +394,88 @@ export default function PoolsPage() {
                 throw new Error("Sync timed out. Please try Manual Sync.");
             }
 
-            // Open Proof Viewer
-            console.log("[POLARIS] Opening Proof Viewer Modal...");
+            // 2. Pre-verify with Hub before opening modal
+            console.log("[POLARIS] 🔍 Proof obtained. Verifying Hub readiness...");
+
+            // Re-poll the staticCall if Hub is delayed
+            let isHubReady = false;
+            while (attempts < maxAttempts && !isHubReady) {
+                try {
+                    const { config, id } = getMasterConfig();
+                    const poolManager = await getContract(config.POOL_MANAGER, ABIS.PoolManager, id);
+
+                    await poolManager.addLiquidityFromProof.staticCall(
+                        proof.chainKey,
+                        proof.blockHeight,
+                        proof.encodedTransaction,
+                        proof.merkleRoot,
+                        proof.siblings,
+                        proof.lowerEndpointDigest,
+                        proof.continuityRoots
+                    );
+
+                    isHubReady = true;
+                    console.log("[POLARIS] ✅ Hub is Ready!");
+                } catch (staticError: any) {
+                    const reason = (staticError.reason || staticError.message || "").toLowerCase();
+                    if (reason.includes("already processed") || reason.includes("replay")) {
+                        toast.success("Transaction already synced on Master Hub.");
+                        return;
+                    }
+
+                    console.log("[POLARIS] ⏳ Proof ready, but Hub still syncing roots... waiting 15s");
+                    // Use a constant toastId to update the same toast instead of stacking them
+                    toast.info("⏳ Proof found! Waiting for Hub to sync continuity roots...", {
+                        toastId: "sync-status",
+                        autoClose: 10000
+                    });
+                    await new Promise(r => setTimeout(r, 15000));
+                    attempts++;
+                }
+            }
+
+            // Open Proof Viewer only when actually ready to submit
+            console.log("[POLARIS] Hub ready. Opening Proof Viewer Modal...");
             setGeneratedProof(proof);
             setIsProofViewerOpen(true);
-            toast.success("Proof Generated! Ready to finalize.");
+            toast.success("✨ Everything Ready! Click 'FINALIZE' to complete.");
 
-            // We don't auto-finalize now, we let the user review and click "Sync"
         } catch (error: any) {
             console.error("Auto-sync failed:", error);
-            toast.warn("Sync requires manual approval.");
+            // Don't show redundant "requires manual approval" if it was just a timeout
+            if (error.message !== "HUB_NOT_SYNCED") {
+                toast.warn("Sync process paused. You can try again from the Monitor.");
+            }
             setSyncProofData(txHash);
         }
     };
 
     const finalizeSync = async () => {
         if (!generatedProof) return;
+
+        // Check if already synced to avoid redundant reverts
+        const sourceTx = lastDepositTx || syncProofData;
+        const isSynced = dbDeposits.find((d: any) => d.tx_hash === sourceTx && d.status === 'Synced');
+        if (isSynced) {
+            toast.success("This transaction is already synced on the Master Hub!");
+            setIsProofViewerOpen(false);
+            return;
+        }
+
         try {
-            // Switch to Hub if needed
-            if (Number(chainId) !== NETWORKS.USC.id) {
-                toast.info("Please switch to Master Hub (USC) to finalize.");
-                // return; // Let them switch and click again? Or wagmi switch?
-                // For better UX, we just proceed and let the wallet prompt invoke switch if possible or fail.
+            // Switch to Hub if needed - handle Privy's eip155: prefix
+            const currentChainId = chainId?.toString().includes(':')
+                ? parseInt(chainId.toString().split(':')[1])
+                : parseInt(chainId?.toString() || "0");
+
+            console.log(`[POLARIS] finalizeSync: currentChainId=${currentChainId}, target=${NETWORKS.USC.id}`);
+
+            if (currentChainId !== NETWORKS.USC.id) {
+                toast.info("Switching to Master Hub (USC) to finalize...");
             }
 
             toast.info("Submitting Proof to Master Chain...");
             const receipt = await addLiquidityFromProof(generatedProof);
-
-            // Record the HUB hash so it shows up in explorer links
-            // Use lastDepositTx or fallback to syncProofData which holds the hash during manual sync
-            const sourceTx = lastDepositTx || syncProofData;
 
             if (sourceTx) {
                 try {
@@ -446,9 +507,22 @@ export default function PoolsPage() {
             setGeneratedProof(null);
             setSelectedView("USC");
             refreshData();
-        } catch (e) {
+        } catch (e: any) {
             console.error(e);
-            toast.error("Sync failed on chain.");
+            const msg = (e.message || "").toLowerCase();
+            const isSyncIssue = msg.includes("continuity") || msg.includes("attestation") || msg.includes("checkpoint") || msg.includes("hub_not_synced");
+
+            if (isSyncIssue) {
+                toast.warning(
+                    <div className="flex flex-col gap-1">
+                        <span className="font-bold">⏳ Hub Still Syncing</span>
+                        <span className="text-[10px]">The Master Hub hasn't seen this block yet. Please wait ~5 minutes and try again.</span>
+                    </div>,
+                    { autoClose: 10000 }
+                );
+            } else {
+                toast.error(e.reason || e.message || "Sync failed on chain.");
+            }
         }
     };
 

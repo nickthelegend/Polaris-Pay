@@ -115,18 +115,64 @@ export function usePolaris() {
     };
 
     const addLiquidityFromProof = async (proof: {
-        chainKey: string | number;
-        blockHeight: string | number;
+        chainKey: any;
+        blockHeight: any;
         encodedTransaction: string;
         merkleRoot: string;
-        siblings: { hash: string; isLeft: boolean }[];
+        siblings: any[];
         lowerEndpointDigest: string;
         continuityRoots: string[];
     }) => {
         setLoading(true);
         try {
+            console.log(`[POLARIS] 🚀 FINALIZING_SYNC: Starting proof submission for block ${proof.blockHeight} on chain ${proof.chainKey}`);
+
             const { config, id } = getMasterConfig();
             const poolManager = await getContract(config.POOL_MANAGER, ABIS.PoolManager, id);
+
+            // 1. DYNAMIC GAS ESTIMATION (Based on official bridge-examples logic)
+            // 21000 (base) + (continuityBlocks * 5000) + 20000 (overhead)
+            const continuityBlocks = proof.continuityRoots?.length || 1;
+            const calculatedGas = 100000 + (continuityBlocks * 10000) + 100000; // Playing it safer than the examples for the pool manager complex logic
+            console.log(`[POLARIS] ⏳ Calculated Gas Limit: ${calculatedGas} for ${continuityBlocks} continuity blocks.`);
+
+            // 2. PRE-FLIGHT VERIFICATION
+            console.log("[POLARIS] 🔍 Running Pre-Flight staticCall verification...");
+            try {
+                await poolManager.addLiquidityFromProof.staticCall(
+                    proof.chainKey,
+                    proof.blockHeight,
+                    proof.encodedTransaction,
+                    proof.merkleRoot,
+                    proof.siblings,
+                    proof.lowerEndpointDigest,
+                    proof.continuityRoots
+                );
+                console.log("[POLARIS] ✅ Pre-Flight Passed.");
+            } catch (staticError: any) {
+                const reason = staticError.reason || staticError.message || "";
+                console.warn("[POLARIS] ⚠️ Pre-Flight Verification Failed:", reason);
+
+                if (reason.includes("already processed") || reason.includes("replay")) {
+                    console.info("[POLARIS] Sync already completed previously.");
+                    setTxHash("ALREADY_SYNCED");
+                    return { hash: "ALREADY_SYNCED", status: 1 };
+                }
+
+                if (reason.includes("Continuity proof") || reason.includes("checkpoint") || reason.includes("match attestation")) {
+                    console.warn("[POLARIS] ⏳ Hub Oracle Delay: Continuity roots not yet pushing to state.");
+                    throw new Error("HUB_NOT_SYNCED"); // Frontend will catch this and give nice message
+                }
+
+                if (reason.includes("Native verification failed")) {
+                    throw new Error("VERIFICATION_FAILED: The specific cryptographic proof failed to verify against the current Hub state.");
+                }
+
+                throw new Error(`CONTRACT_REVERT: ${reason}`);
+            }
+
+            // 3. EXECUTE TRANSACTION
+            console.log("[POLARIS] 💸 Sending proof submission to PoolManager...");
             const tx = await poolManager.addLiquidityFromProof(
                 proof.chainKey,
                 proof.blockHeight,
@@ -135,13 +181,27 @@ export function usePolaris() {
                 proof.siblings,
                 proof.lowerEndpointDigest,
                 proof.continuityRoots,
-                { gasLimit: 6000000 }
+                { gasLimit: calculatedGas } // Using our calculated gas
             );
+
+            console.log(`[POLARIS] 🛰️ Transaction Broadcasted: ${tx.hash}`);
             const receipt = await tx.wait();
+
+            if (!receipt || receipt.status === 0) {
+                throw new Error("TRANSACTION_FAILED: The transaction was mined but reverted.");
+            }
+
+            console.log(`[POLARIS] 🏁 Sync Successful! Hub Tx: ${receipt.hash}`);
             setTxHash(receipt.hash);
             return receipt;
-        } catch (error) {
-            console.error("Proof submission failed:", error);
+
+        } catch (error: any) {
+            console.error("[POLARIS] ❌ FinalizeSync Failed:", error);
+
+            // Re-throw standardized errors for the UI to catch
+            if (error.message === "HUB_NOT_SYNCED") {
+                throw new Error("The Hub hasn't registered this block's continuity roots yet. Please wait 2-3 minutes for the Oracle and try again.");
+            }
             throw error;
         } finally {
             setLoading(false);
@@ -430,6 +490,8 @@ export function usePolaris() {
         getLoans,
         requestWithdrawal,
         mintTokens,
+        getMasterConfig,
+        getContract,
         authenticated,
         address: wallet?.address,
         chainId: wallet?.chainId

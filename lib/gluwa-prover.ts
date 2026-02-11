@@ -32,15 +32,15 @@ export async function generateProofFor(
         // Now that we have the block number, we can setup the chain info provider
         const info = new chainInfo.PrecompileChainInfoProvider(creditcoinRpc);
 
-        console.log(`[PROVER] Checking attestation for block ${blockNumber} on chain ${chainKey}...`);
+        console.log(`[PROVER] Waiting for block ${blockNumber} attestation on Hub (chain ${chainKey})...`);
 
-        const latest = await info.getLatestAttestedHeightAndHash(chainKey);
-        console.log(`[PROVER] Hub Latest Attested: ${latest.height} (Exists: ${latest.exists})`);
-
-        const isAttested = latest.exists && latest.height >= blockNumber;
-
-        if (!isAttested) {
-            console.log(`[PROVER] 🛑 Block ${blockNumber} NOT ATTESTED. Throwing BLOCK_NOT_ATTESTED.`);
+        try {
+            // Wait for up to 10 seconds (10,000ms) with 2s polling
+            // This is safer for web request timeouts
+            await info.waitUntilHeightAttested(chainKey, blockNumber, 2_000, 10_000);
+            console.log(`[PROVER] ✅ Block ${blockNumber} is now attested on Hub.`);
+        } catch (waitError: any) {
+            console.log(`[PROVER] 🛑 Block ${blockNumber} not yet attested after 10s. Returning BLOCK_NOT_ATTESTED.`);
             throw new Error("BLOCK_NOT_ATTESTED");
         }
 
