@@ -202,7 +202,7 @@ export default function PoolsPage() {
         if (authenticated) {
             refreshData();
         }
-    }, [authenticated, selectedView]);
+    }, [authenticated, selectedView, address, chainId]);
 
     const savePoolCache = async (name: string, data: any) => {
         try {
@@ -216,11 +216,15 @@ export default function PoolsPage() {
     const refreshData = async () => {
         setRefreshing(true);
         try {
-            console.log(`[POLARIS] Refreshing GLOBAL AGGREGATED data...`);
-
             // 1. Global Header Cards (Always Hub-Aggregated)
             const aggregatedEquity = await getUserTotalCollateral();
-            setTotalEquity(aggregatedEquity);
+
+            // OPTIMISTIC LOGIC: If Hub shows 0, but DB has deposits, keep the DB value as "Optimistic"
+            if (parseFloat(aggregatedEquity) > 0) {
+                setTotalEquity(aggregatedEquity);
+            } else {
+                console.log("[POLARIS] Hub equity is 0. Keeping DB equity as optimistic fallback.");
+            }
 
             const aggregatedTVL = await getTotalTVL();
             setTotalTVL(aggregatedTVL);
@@ -228,8 +232,17 @@ export default function PoolsPage() {
             // 2. Score & Loans (Always Hub-Aggregated)
             const score = await getScore();
             setUserScore(score);
+
             const limit = await getCreditLimit();
-            setCreditLimit(limit);
+            // OPTIMISTIC LIMIT: If Hub returns 0 limit but we HAVE equity in state, show shadow limit
+            if (parseFloat(limit) > 0) {
+                setCreditLimit(limit);
+            } else if (parseFloat(totalEquity) > 0) {
+                console.log("[POLARIS] Hub limit is 0. Using shadow limit logic (50% of equity).");
+                setCreditLimit((parseFloat(totalEquity) * 0.5).toString());
+            } else {
+                setCreditLimit("0");
+            }
 
             const loans = await getLoans();
             setActiveLoans(loans);

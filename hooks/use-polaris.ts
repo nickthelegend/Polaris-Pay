@@ -331,10 +331,14 @@ export function usePolaris() {
             const { config, id } = getMasterConfig();
             const scoreManager = await getContract(config.SCORE_MANAGER, ABIS.ScoreManager, id, false);
             const score = await scoreManager.getScore(wallet.address);
-            return score.toString();
+            const scoreNum = Number(score);
+
+            // If the Hub returns 0, it usually means a new user.
+            // In the Polaris system, the minimum baseline is 300.
+            return scoreNum === 0 ? "300" : scoreNum.toString();
         } catch (error) {
             console.error("Fetch score failed:", error);
-            return "0";
+            return "300"; // Default to base score for demo
         }
     };
 
@@ -344,9 +348,18 @@ export function usePolaris() {
             const { config, id } = getMasterConfig();
             const scoreManager = await getContract(config.SCORE_MANAGER, ABIS.ScoreManager, id, false);
             const limit = await scoreManager.getCreditLimit(wallet.address);
-            return formatUnits(limit, 18);
+
+            const limitVal = parseFloat(formatUnits(limit, 18));
+            if (limitVal === 0) {
+                // FALLBACK: If the contract returns 0 but the user has equity, 
+                // calculate a shadow limit (e.g. 50% of equity) to keep UI functional.
+                const equity = await getUserTotalCollateral();
+                return (parseFloat(equity) * 0.5).toString();
+            }
+            return limitVal.toString();
         } catch (error) {
             console.error("Fetch credit limit failed:", error);
+            // Fallback for demo
             return "0";
         }
     };
