@@ -1,5 +1,5 @@
-import { useState, useCallback } from 'react';
-import { JsonRpcProvider, BrowserProvider, Contract, parseUnits, formatUnits } from 'ethers';
+import { useState, useCallback, useEffect } from 'react';
+import { ethers, BrowserProvider, JsonRpcProvider, Contract, parseUnits, formatUnits } from 'ethers';
 import { usePrivy, useWallets } from '@privy-io/react-auth';
 import { CONTRACTS, ABIS, NETWORKS } from '@/lib/contracts';
 
@@ -79,7 +79,7 @@ export function usePolaris() {
                 if (balance < amountWei) {
                     const isTestnet = networkId === NETWORKS.SEPOLIA.id || networkId === NETWORKS.GANACHE.id;
                     if (isTestnet) {
-                        console.log(`[POLARIS] Insufficient balance (${formatUnits(balance, decimals)}). Auto-minting...`);
+                        console.log(`[POLARIS] Insufficient balance(${formatUnits(balance, decimals)}).Auto - minting...`);
                         try {
                             // Mint enough for this tx + buffer
                             const mintAmount = amountWei * BigInt(10);
@@ -91,7 +91,7 @@ export function usePolaris() {
                             throw new Error("Insufficient balance and faucet failed.");
                         }
                     } else {
-                        throw new Error(`Insufficient Balance. You have ${formatUnits(balance, decimals)} ${await token.symbol()}`);
+                        throw new Error(`Insufficient Balance.You have ${formatUnits(balance, decimals)} ${await token.symbol()} `);
                     }
                 }
             }
@@ -125,7 +125,7 @@ export function usePolaris() {
     }) => {
         setLoading(true);
         try {
-            console.log(`[POLARIS] 🚀 FINALIZING_SYNC: Starting proof submission for block ${proof.blockHeight} on chain ${proof.chainKey}`);
+            console.log(`[POLARIS] 🚀 FINALIZING_SYNC: Starting proof submission for block ${proof.blockHeight} on chain ${proof.chainKey} `);
 
             const { config, id } = getMasterConfig();
             const poolManager = await getContract(config.POOL_MANAGER, ABIS.PoolManager, id);
@@ -168,7 +168,7 @@ export function usePolaris() {
                     throw new Error("VERIFICATION_FAILED: The specific cryptographic proof failed to verify against the current Hub state.");
                 }
 
-                throw new Error(`CONTRACT_REVERT: ${reason}`);
+                throw new Error(`CONTRACT_REVERT: ${reason} `);
             }
 
             // 3. EXECUTE TRANSACTION
@@ -184,14 +184,14 @@ export function usePolaris() {
                 { gasLimit: calculatedGas } // Using our calculated gas
             );
 
-            console.log(`[POLARIS] 🛰️ Transaction Broadcasted: ${tx.hash}`);
+            console.log(`[POLARIS] 🛰️ Transaction Broadcasted: ${tx.hash} `);
             const receipt = await tx.wait();
 
             if (!receipt || receipt.status === 0) {
                 throw new Error("TRANSACTION_FAILED: The transaction was mined but reverted.");
             }
 
-            console.log(`[POLARIS] 🏁 Sync Successful! Hub Tx: ${receipt.hash}`);
+            console.log(`[POLARIS] 🏁 Sync Successful! Hub Tx: ${receipt.hash} `);
             setTxHash(receipt.hash);
             return receipt;
 
@@ -279,20 +279,30 @@ export function usePolaris() {
             const { config, id } = getMasterConfig();
             const poolManager = await getContract(config.POOL_MANAGER, ABIS.PoolManager, id, false);
 
-            // Get all whitelisted tokens
-            let totalTVL = BigInt(0);
+            let totalUSD = 0;
             let i = 0;
-            while (true) {
+
+            // Loop through all whitelisted tokens on the Hub
+            while (i < 10) { // Safety limit for dev
                 try {
                     const tokenAddr = await poolManager.whitelistedTokens(i);
+                    if (!tokenAddr || tokenAddr === ethers.ZeroAddress) break;
+
                     const liquidity = await poolManager.getPoolLiquidity(tokenAddr);
-                    totalTVL += liquidity;
+
+                    // Specific decimals for each token to ensure accurate aggregation
+                    const token = await getContract(tokenAddr, ABIS.MockERC20, id, false);
+                    let decimals = 18;
+                    try { decimals = Number(await token.decimals()); } catch (e) { }
+
+                    const formatted = parseFloat(formatUnits(liquidity, decimals));
+                    totalUSD += formatted;
                     i++;
                 } catch (e) {
-                    break; // End of array
+                    break;
                 }
             }
-            return formatUnits(totalTVL, 18);
+            return totalUSD.toString();
         } catch (error) {
             console.error("Fetch total TVL failed:", error);
             return "0";

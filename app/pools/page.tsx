@@ -216,18 +216,16 @@ export default function PoolsPage() {
     const refreshData = async () => {
         setRefreshing(true);
         try {
-            console.log(`[POLARIS] Refreshing data for view: ${selectedView}...`);
+            console.log(`[POLARIS] Refreshing GLOBAL AGGREGATED data...`);
 
-            // 1. Fetch Aggregated Hub stats (Skip RPC for Hub View)
-            if (selectedView !== "USC") {
-                const aggregatedEquity = await getUserTotalCollateral();
-                setTotalEquity(aggregatedEquity);
+            // 1. Global Header Cards (Always Hub-Aggregated)
+            const aggregatedEquity = await getUserTotalCollateral();
+            setTotalEquity(aggregatedEquity);
 
-                const aggregatedTVL = await getTotalTVL();
-                setTotalTVL(aggregatedTVL);
-            }
+            const aggregatedTVL = await getTotalTVL();
+            setTotalTVL(aggregatedTVL);
 
-            // 2. Score & Loans
+            // 2. Score & Loans (Always Hub-Aggregated)
             const score = await getScore();
             setUserScore(score);
             const limit = await getCreditLimit();
@@ -236,45 +234,49 @@ export default function PoolsPage() {
             const loans = await getLoans();
             setActiveLoans(loans);
 
-            // 3. Fetch specific asset liquidities on the HUB using the SOURCE TOKEN ADDRESSES
-            // This ensures we are NOT scraping the spoke, but asking the Hub "how much USDC from Sepolia do we have?"
-            const net = NETWORKS[selectedView];
-            const spokeConfig = (CONTRACTS.SPOKES as any)[selectedView];
+            // 3. Asset Row Logic (Global vs Local)
+            // Fetch Global Hub Totals for the Asset Display
+            const sepConfig = CONTRACTS.SPOKES.SEPOLIA;
+            const hedConfig = CONTRACTS.SPOKES.HEDERA;
+
+            // FETCH GLOBAL HUB RESERVES (Summing all known pools on Hub)
+            const globalUsdcRes = await getPoolLiquidity(sepConfig.USDC); // On Hub, Liquidity is per source token. Summing them:
+            const hedUsdcRes = await getPoolLiquidity(hedConfig.USDC);
+            const globalUsdtRes = await getPoolLiquidity(sepConfig.USDT);
+            const hedUsdtRes = await getPoolLiquidity(hedConfig.USDT);
+
+            // AGGREGATE!
+            const totalUsdcRes = (parseFloat(globalUsdcRes) + parseFloat(hedUsdcRes)).toString();
+            const totalUsdtRes = (parseFloat(globalUsdtRes) + parseFloat(hedUsdtRes)).toString();
+
+            setUsdcPhysicalLiq(totalUsdcRes);
+            setUsdtPhysicalLiq(totalUsdtRes);
+
+            // FETCH YOUR GLOBAL AGGREGATE COLLATERAL (Per Token)
+            const lpUsdcSep = await getLPBalance(sepConfig.USDC);
+            const lpUsdcHed = await getLPBalance(hedConfig.USDC);
+            const lpUsdtSep = await getLPBalance(sepConfig.USDT);
+            const lpUsdtHed = await getLPBalance(hedConfig.USDT);
+
+            setUsdcLPBalance((parseFloat(lpUsdcSep) + parseFloat(lpUsdcHed)).toString());
+            setUsdtLPBalance((parseFloat(lpUsdtSep) + parseFloat(lpUsdtHed)).toString());
+
+            // 4. Local User Balances (Based on the dropdown selection for the Deposit button)
+            const currentNetId = NETWORKS[selectedView].id;
+            const currentSpoke = (CONTRACTS.SPOKES as any)[selectedView];
 
             if (selectedView !== "USC") {
-                // SPOKE VIEW: Only refresh for the SELECTED spoke
-                const spokeConfig = (CONTRACTS.SPOKES as any)[selectedView];
-                const net = NETWORKS[selectedView];
-
-                // Fetch real-time data from the Hub and the Spoke
-                const usdcLiq = await getPoolLiquidity(spokeConfig.USDC);
-                const usdtLiq = await getPoolLiquidity(spokeConfig.USDT);
-                const usdcLP = await getLPBalance(spokeConfig.USDC);
-                const usdtLP = await getLPBalance(spokeConfig.USDT);
-
-                // Fetch Physical Reserves from the Spoke specifically
-                const physUsdc = await getVaultPhysicalBalance(spokeConfig.USDC, net.id);
-                const physUsdt = await getVaultPhysicalBalance(spokeConfig.USDT, net.id);
-
-                // Real user balance on the selected chain (for the deposit button)
-                const ubUsdc = await getTokenBalance(spokeConfig.USDC, net.id);
-                const ubUsdt = await getTokenBalance(spokeConfig.USDT, net.id);
-
-                setUsdcLiquidity(usdcLiq);
-                setUsdtLiquidity(usdtLiq);
-                setUsdcLPBalance(usdcLP);
-                setUsdtLPBalance(usdtLP);
-                setUsdcPhysicalLiq(physUsdc);
-                setUsdtPhysicalLiq(physUsdt);
+                const ubUsdc = await getTokenBalance(currentSpoke.USDC, currentNetId);
+                const ubUsdt = await getTokenBalance(currentSpoke.USDT, currentNetId);
                 setUsdcUserBalance(ubUsdc);
                 setUsdtUserBalance(ubUsdt);
-
-                // Update Cache so the Hub view reflects this Spoke's data
-                savePoolCache("USDC_VAULT", { tvl: usdcLiq, lp_balance: usdcLP, physical_balance: physUsdc });
-                savePoolCache("USDT_VAULT", { tvl: usdtLiq, lp_balance: usdtLP, physical_balance: physUsdt });
             }
 
-            console.log(`[SCORE]: ${userScore}`);
+            // Update Cache for first-paint on next visit
+            savePoolCache("USDC_VAULT", { tvl: totalUsdcRes, lp_balance: (parseFloat(lpUsdcSep) + parseFloat(lpUsdcHed)), physical_balance: totalUsdcRes });
+            savePoolCache("USDT_VAULT", { tvl: totalUsdtRes, lp_balance: (parseFloat(lpUsdtSep) + parseFloat(lpUsdtHed)), physical_balance: totalUsdtRes });
+
+            console.log(`[POLARIS] Refresh Complete. Aggregated TVL: $${aggregatedTVL}`);
         } catch (err) {
             console.error("Refresh failed:", err);
         } finally {
@@ -748,10 +750,10 @@ export default function PoolsPage() {
                                     <span className="text-[10px] text-white/40 uppercase tracking-widest">Asset_Type</span>
                                 </div>
                                 <div className="col-span-2 text-right">
-                                    <span className="text-[10px] text-white/40 uppercase tracking-widest">Vault_Reserves</span>
+                                    <span className="text-[10px] text-white/40 uppercase tracking-widest">Global_Reserves</span>
                                 </div>
                                 <div className="col-span-2 text-right">
-                                    <span className="text-[10px] text-white/40 uppercase tracking-widest">Your_Deposit</span>
+                                    <span className="text-[10px] text-white/40 uppercase tracking-widest">Your_Aggregate</span>
                                 </div>
                                 <div className="col-span-2 text-right">
                                     <span className="text-[10px] text-white/40 uppercase tracking-widest">APR</span>
