@@ -138,7 +138,9 @@ export default function PoolsPage() {
     const [generatedProof, setGeneratedProof] = useState<any>(null);
 
     const { data: poolsData, isLoading: isDbLoading } = useSWR("/api/pools", fetcher)
+    const { data: txData } = useSWR("/api/transactions", fetcher)
     const pools = poolsData?.pools ?? []
+    const dbDeposits = txData?.deposits ?? []
 
     const usdcPool = pools.find((p: any) => p.name === 'USDC_VAULT')
     const usdtPool = pools.find((p: any) => p.name === 'USDT_VAULT')
@@ -153,6 +155,7 @@ export default function PoolsPage() {
             if (up) {
                 setUsdcPhysicalLiq(up.physical_balance?.toString() || "0");
                 setUsdcLiquidity(up.tvl?.toString() || "0");
+                // Use DB LP balance if available, otherwise fallback
                 setUsdcLPBalance(up.lp_balance?.toString() || "0");
             }
             if (ut) {
@@ -160,8 +163,31 @@ export default function PoolsPage() {
                 setUsdtLiquidity(ut.tvl?.toString() || "0");
                 setUsdtLPBalance(ut.lp_balance?.toString() || "0");
             }
+
+            // Sync Total TVL from DB
+            const tvlSum = pools.reduce((acc: number, p: any) => acc + (Number(p.tvl) || 0), 0);
+            setTotalTVL(tvlSum.toString());
         }
-    }, [poolsData]);
+
+        if (dbDeposits.length > 0) {
+            // Your Equity from DB Deposits
+            const equitySum = dbDeposits.reduce((acc: number, d: any) => acc + (Number(d.amount) || 0), 0);
+            setTotalEquity(equitySum.toString());
+
+            // Update individual LP balances from DB if specific records exist
+            const usdcDepTotal = dbDeposits
+                .filter((d: any) => d.asset === "USDC")
+                .reduce((acc: number, d: any) => acc + (Number(d.amount) || 0), 0);
+            const usdtDepTotal = dbDeposits
+                .filter((d: any) => d.asset === "USDT")
+                .reduce((acc: number, d: any) => acc + (Number(d.amount) || 0), 0);
+
+            if (selectedView === "USC") {
+                setUsdcLPBalance(usdcDepTotal.toString());
+                setUsdtLPBalance(usdtDepTotal.toString());
+            }
+        }
+    }, [poolsData, txData, selectedView]);
 
     useEffect(() => {
         if (authenticated) {
@@ -183,12 +209,14 @@ export default function PoolsPage() {
         try {
             console.log(`[POLARIS] Refreshing data for view: ${selectedView}...`);
 
-            // 1. Fetch Aggregated Hub stats (Equity & TVL across ALL chains)
-            const aggregatedEquity = await getUserTotalCollateral();
-            setTotalEquity(aggregatedEquity);
+            // 1. Fetch Aggregated Hub stats (Skip RPC for Hub View)
+            if (selectedView !== "USC") {
+                const aggregatedEquity = await getUserTotalCollateral();
+                setTotalEquity(aggregatedEquity);
 
-            const aggregatedTVL = await getTotalTVL();
-            setTotalTVL(aggregatedTVL);
+                const aggregatedTVL = await getTotalTVL();
+                setTotalTVL(aggregatedTVL);
+            }
 
             // 2. Score & Loans
             const score = await getScore();
@@ -204,57 +232,35 @@ export default function PoolsPage() {
             const net = NETWORKS[selectedView];
             const spokeConfig = (CONTRACTS.SPOKES as any)[selectedView];
 
-            if (selectedView === "USC") {
-                // HUB VIEW: Show Aggregate Stats from Master Hub
-                // Get the total summed collateral from the Hub
-                const hubEquity = await getUserTotalCollateral();
-                setTotalEquity(hubEquity);
+            if (selectedView !== "USC") {
+                // SPOKE VIEW: Only refresh for the SELECTED spoke
+                const spokeConfig = (CONTRACTS.SPOKES as any)[selectedView];
+                const net = NETWORKS[selectedView];
 
-                // For the specific row, we show the sum across all whitelisted spokes
-                const usdcHubLiq = await getPoolLiquidity(CONTRACTS.SPOKES.SEPOLIA.USDC);
-                const usdtHubLiq = await getPoolLiquidity(CONTRACTS.SPOKES.SEPOLIA.USDT);
-                setUsdcLiquidity(usdcHubLiq);
-                setUsdtLiquidity(usdtHubLiq);
-
-                // VERY IMPORTANT: Hub View "Your Deposit" is the Hub's record of your cross-chain LP
-                const usdcLP = await getLPBalance(CONTRACTS.SPOKES.SEPOLIA.USDC);
-                const usdtLP = await getLPBalance(CONTRACTS.SPOKES.SEPOLIA.USDT);
-                setUsdcLPBalance(usdcLP);
-                setUsdtLPBalance(usdtLP);
-
-                // Hub physical reserves = Total across all spokes
-                const physUsdc = await getVaultPhysicalBalance(CONTRACTS.SPOKES.SEPOLIA.USDC, NETWORKS.SEPOLIA.id);
-                const physUsdt = await getVaultPhysicalBalance(CONTRACTS.SPOKES.SEPOLIA.USDT, NETWORKS.SEPOLIA.id);
-                setUsdcPhysicalLiq(physUsdc);
-                setUsdtPhysicalLiq(physUsdt);
-
-                savePoolCache("USDC_VAULT", { tvl: usdcHubLiq, lp_balance: usdcLP, physical_balance: physUsdc });
-                savePoolCache("USDT_VAULT", { tvl: usdtHubLiq, lp_balance: usdtLP, physical_balance: physUsdt });
-            } else {
-                // SPOKE VIEW: Show Hub's record of this specific spoke's tokens
+                // Fetch real-time data from the Hub and the Spoke
                 const usdcLiq = await getPoolLiquidity(spokeConfig.USDC);
                 const usdtLiq = await getPoolLiquidity(spokeConfig.USDT);
-                setUsdcLiquidity(usdcLiq);
-                setUsdtLiquidity(usdtLiq);
-
                 const usdcLP = await getLPBalance(spokeConfig.USDC);
                 const usdtLP = await getLPBalance(spokeConfig.USDT);
-                setUsdcLPBalance(usdcLP);
-                setUsdtLPBalance(usdtLP);
 
-                // 4. Fetch Physical Reserves (The actual tokens in the contract on the source chain)
+                // Fetch Physical Reserves from the Spoke specifically
                 const physUsdc = await getVaultPhysicalBalance(spokeConfig.USDC, net.id);
                 const physUsdt = await getVaultPhysicalBalance(spokeConfig.USDT, net.id);
-                setUsdcPhysicalLiq(physUsdc);
-                setUsdtPhysicalLiq(physUsdt);
 
                 // Real user balance on the selected chain (for the deposit button)
                 const ubUsdc = await getTokenBalance(spokeConfig.USDC, net.id);
                 const ubUsdt = await getTokenBalance(spokeConfig.USDT, net.id);
+
+                setUsdcLiquidity(usdcLiq);
+                setUsdtLiquidity(usdtLiq);
+                setUsdcLPBalance(usdcLP);
+                setUsdtLPBalance(usdtLP);
+                setUsdcPhysicalLiq(physUsdc);
+                setUsdtPhysicalLiq(physUsdt);
                 setUsdcUserBalance(ubUsdc);
                 setUsdtUserBalance(ubUsdt);
 
-                // Update Cache for Spoke View
+                // Update Cache so the Hub view reflects this Spoke's data
                 savePoolCache("USDC_VAULT", { tvl: usdcLiq, lp_balance: usdcLP, physical_balance: physUsdc });
                 savePoolCache("USDT_VAULT", { tvl: usdtLiq, lp_balance: usdtLP, physical_balance: physUsdt });
             }
