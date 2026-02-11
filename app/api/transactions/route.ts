@@ -33,6 +33,8 @@ export async function GET() {
     asset: t.asset,
     created_at: t.created_at,
     tx_hash: t.tx_hash,
+    hub_tx_hash: t.hub_tx_hash,
+    chain_id: t.chain_id,
     category: t.category
   }))
 
@@ -47,9 +49,10 @@ export async function GET() {
 
   const deposits = (allDeposits || []).map(d => ({
     type: 'deposit',
-    title: `Deposit to ${d.token_address?.slice(0, 6)}... Vault`,
+    title: `Pool Deposit`,
     amount: d.amount,
-    asset: d.token_address?.toLowerCase().includes("a715") ? "USDC" : "USDT", // Map back from addr if possible
+    asset: d.token_address?.toLowerCase().includes("a715") ? "USDC" : "USDT",
+    token_address: d.token_address,
     created_at: d.created_at,
     tx_hash: d.tx_hash,
     hub_tx_hash: d.hub_tx_hash,

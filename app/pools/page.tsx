@@ -18,7 +18,8 @@ import {
     RefreshCw,
     Wallet,
     ChevronDown,
-    Info
+    Info,
+    ExternalLink
 } from "lucide-react"
 import { Skeleton } from "@/components/ui/skeleton"
 
@@ -422,7 +423,19 @@ export default function PoolsPage() {
                 } catch (e) { console.warn("DB Update failed", e); }
             }
 
-            toast.success("✅ Protocol Synced!");
+            toast.success(
+                <div className="flex flex-col gap-1">
+                    <span className="font-bold">✅ Protocol Synced!</span>
+                    <a
+                        href={`https://explorer.usc-testnet2.creditcoin.network/tx/${receipt.hash}`}
+                        target="_blank"
+                        className="text-[10px] text-primary underline flex items-center gap-1 font-mono uppercase"
+                    >
+                        View Hub Transaction <ExternalLink className="w-2.5 h-2.5" />
+                    </a>
+                </div>
+            );
+
             setIsProofViewerOpen(false);
             setGeneratedProof(null);
             setSelectedView("USC");

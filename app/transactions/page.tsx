@@ -141,22 +141,39 @@ export default function TransactionsPage() {
                     <div>
                       <div className="flex items-center gap-2">
                         <span className="text-white font-bold text-sm tracking-tight">{t.title}</span>
-                        {t.status === 'COMPLETED' || t.status === 'VERIFIED' ? (
+                        {t.hub_tx_hash && (
+                          <span className="text-[8px] bg-primary/20 text-primary px-1.5 py-0.5 rounded border border-primary/20 font-black tracking-widest uppercase">
+                            Cross-Chain
+                          </span>
+                        )}
+                        {t.status === 'COMPLETED' || t.status === 'Synced' || t.status === 'VERIFIED' ? (
                           <ShieldCheck className="w-3 h-3 text-green-400" />
-                        ) : t.status === 'PENDING' || t.status === 'DETECTED' ? (
+                        ) : t.status === 'PENDING' || t.status === 'DETECTED' || t.status === 'ProofGenerated' ? (
                           <Clock className="w-3 h-3 text-primary animate-pulse" />
                         ) : null}
                       </div>
-                      <div className="flex items-center gap-3 mt-1">
-                        <span className="text-[10px] text-white/30 uppercase font-black">{new Date(t.created_at).toLocaleDateString()}</span>
-                        <span className="text-[10px] text-white/10 opacity-50">•</span>
+                      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1">
+                        <span className="text-[10px] text-white/30 uppercase font-black tabular-nums">{new Date(t.created_at).toLocaleDateString()}</span>
+
+                        {/* Source Link */}
                         <Link
                           href={getExplorerLink(t)}
                           target="_blank"
                           className="text-[10px] text-primary/60 hover:text-primary flex items-center gap-1 font-bold underline decoration-primary/20 underline-offset-2"
                         >
-                          EXPLORER <ExternalLink className="w-2.5 h-2.5" />
+                          {t.type === 'transaction' ? 'EXPLORER' : 'SOURCE'} <ExternalLink className="w-2.5 h-2.5" />
                         </Link>
+
+                        {/* Hub Link (If Synced) */}
+                        {t.hub_tx_hash && (
+                          <Link
+                            href={`${NETWORKS.USC.explorer}/tx/${t.hub_tx_hash}`}
+                            target="_blank"
+                            className="text-[10px] text-green-400/80 hover:text-green-400 flex items-center gap-1 font-bold underline decoration-green-400/20 underline-offset-2"
+                          >
+                            HUB_SYNC <ExternalLink className="w-2.5 h-2.5" />
+                          </Link>
+                        )}
                       </div>
                     </div>
                   </div>

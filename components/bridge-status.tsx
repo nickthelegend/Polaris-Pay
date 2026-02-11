@@ -127,12 +127,11 @@ export function BridgeStatus({ address }: BridgeStatusProps) {
                                     <a
                                         href={`https://explorer.usc-testnet2.creditcoin.network/tx/${tx.hub_tx_hash}`}
                                         target="_blank"
-                                        className="p-1.5 hover:bg-white/10 rounded-sm transition-colors"
+                                        className="p-1 px-2 bg-primary/20 hover:bg-primary/30 rounded text-[9px] font-black text-primary border border-primary/20 flex items-center gap-1 transition-all"
                                         title="View on USC Hub"
                                     >
-                                        <div className="w-3 h-3 rounded-full bg-primary/20 flex items-center justify-center">
-                                            <div className="w-1.5 h-1.5 rounded-full bg-primary" />
-                                        </div>
+                                        <div className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
+                                        HUB_TX
                                     </a>
                                 )}
                             </div>
