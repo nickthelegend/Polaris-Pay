@@ -468,6 +468,31 @@ export function usePolaris() {
         }
     };
 
+    const payWithCredit = async (merchantAddress: string, amount: string, tokenAddress: string) => {
+        setLoading(true);
+        try {
+            const { config, id } = getMasterConfig();
+            const router = await getContract((config as any).MERCHANT_ROUTER, ABIS.MerchantRouter, id);
+
+            const token = await getContract(tokenAddress, ABIS.MockERC20, id, false);
+            let decimals = 18;
+            try { decimals = Number(await token.decimals()); } catch (e) { }
+
+            const amountWei = parseUnits(amount, decimals);
+
+            console.log(`[POLARIS] Paying merchant ${merchantAddress} via Hub...`);
+            const tx = await router.payWithCredit(merchantAddress, tokenAddress, amountWei, { gasLimit: 1000000 });
+            const receipt = await tx.wait();
+            setTxHash(receipt.hash);
+            return receipt;
+        } catch (error) {
+            console.error("Payment failed:", error);
+            throw error;
+        } finally {
+            setLoading(false);
+        }
+    };
+
     const mintTokens = async (tokenAddress: string, amount: string, networkId: number) => {
         setLoading(true);
         try {
@@ -509,6 +534,7 @@ export function usePolaris() {
         getScore,
         getCreditLimit,
         createLoan,
+        payWithCredit,
         repayLoan,
         getLoans,
         requestWithdrawal,

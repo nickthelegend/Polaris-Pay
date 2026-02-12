@@ -2,11 +2,13 @@
 
 import { useState, useEffect } from "react"
 import { useParams, useRouter } from "next/navigation"
+import { ethers } from "ethers"
 import { usePolaris } from "@/hooks/use-polaris"
-import { usePrivy } from "@privy-io/react-auth"
+import { usePrivy, useWallets } from "@privy-io/react-auth"
 import { ShieldCheck, Zap, AlertCircle, CheckCircle2, Loader2, ArrowLeft } from "lucide-react"
 import { toast } from "react-toastify"
 import Link from "next/link"
+import { ABIS } from "@/lib/contracts"
 
 export default function CheckoutPage() {
     const params = useParams()
@@ -15,17 +17,26 @@ export default function CheckoutPage() {
     const {
         authenticated,
         address,
-        creditLimit,
         getMasterConfig,
+        getCreditLimit,
+        payWithCredit,
         loading: polarisLoading
     } = usePolaris()
     const { login } = usePrivy()
+    const { wallets } = useWallets()
 
     const [bill, setBill] = useState<any>(null)
     const [fetching, setFetching] = useState(true)
     const [paying, setPaying] = useState(false)
     const [success, setSuccess] = useState(false)
     const [txHash, setTxHash] = useState("")
+    const [creditLimit, setCreditLimit] = useState("0")
+
+    useEffect(() => {
+        if (authenticated && address) {
+            getCreditLimit().then(setCreditLimit);
+        }
+    }, [authenticated, address])
 
     useEffect(() => {
         if (hash) {
@@ -57,33 +68,87 @@ export default function CheckoutPage() {
             return
         }
 
+        const targetAddress = bill.merchant?.escrow_contract || bill.merchant?.user?.wallet_address;
+        if (!targetAddress) {
+            toast.error("Merchant settlement address not configured.");
+            return;
+        }
+
         setPaying(true)
         try {
-            // Simulation of a Creditcoin Hub transaction
-            const dummyId = "0x" + Math.random().toString(16).slice(2, 66).padEnd(64, '0');
+            const { config } = getMasterConfig() as any;
+            const usdcAddress = config.USDC;
+            const wallet = wallets[0];
 
-            // Notify the backend to settle the bill
+            if (!wallet) throw new Error("Wallet not available for signing");
+
+            // 1. CREDIT_AUTHORIZATION (BNPL)
+            // This records the debt on the Hub
+            console.log("[POLARIS] Step 1: Authorizing Credit via MerchantRouter...");
+            const routerReceipt = await payWithCredit(targetAddress, bill.amount.toString(), usdcAddress);
+            console.log("[POLARIS] Credit Authorized:", routerReceipt.hash);
+
+            // 2. PROTOCOL_SETTLEMENT (Simulating payout from Pool to User)
+            // On testnet, we mint the borrowed funds to the user so they can pay the escrow
+            const provider = new ethers.BrowserProvider(await wallet.getEthereumProvider());
+            const signer = await provider.getSigner();
+            const usdc = new ethers.Contract(usdcAddress, ABIS.MockERC20, signer);
+
+            console.log("[POLARIS] Step 2: Protocol releasing funds (Payout)...");
+            const decimals = 18;
+            const amountWei = ethers.parseUnits(bill.amount.toString(), decimals);
+            const mintTx = await usdc.mint(address, amountWei);
+            await mintTx.wait();
+
+            // 3. MERCHANT_ESCROW_PAYMENT
+            let finalTxHash = routerReceipt.hash;
+
+            if (bill.merchant?.escrow_contract) {
+                console.log("[POLARIS] Step 3: Settling to Merchant Escrow...");
+
+                // Approve escrow to take the minted funds
+                const approveTx = await usdc.approve(bill.merchant.escrow_contract, amountWei);
+                await approveTx.wait();
+
+                // Call settlePayment
+                const escrow = new ethers.Contract(bill.merchant.escrow_contract, ABIS.PolarisMerchantEscrow.abi || ABIS.PolarisMerchantEscrow, signer);
+                const settleTx = await escrow.settlePayment(
+                    amountWei,
+                    bill.hash.slice(0, 10),
+                    bill.description || "Polaris Settlement"
+                );
+                const settleReceipt = await settleTx.wait();
+                finalTxHash = settleReceipt.hash;
+                console.log("[POLARIS] Escrow Settlement Complete:", finalTxHash);
+            } else {
+                console.log("[POLARIS] Step 3: Direct wallet transfer (No Escrow)...");
+                const transferTx = await usdc.transfer(targetAddress, amountWei);
+                const transferReceipt = await transferTx.wait();
+                finalTxHash = transferReceipt.hash;
+            }
+
+            // 4. BACKEND_SYNC
             const res = await fetch("/api/bills/pay", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                     billHash: hash,
-                    txHash: dummyId,
+                    txHash: finalTxHash,
                     userAddress: address
                 })
             })
             const result = await res.json()
 
             if (result.success) {
-                setTxHash(dummyId)
+                setTxHash(finalTxHash)
                 setSuccess(true)
-                toast.success("Payment authorized successfully!")
+                toast.success("Settlement Finalized on Creditcoin Hub!")
             } else {
-                throw new Error(result.error || "Settlement failed")
+                throw new Error(result.error || "Platform sync failed")
             }
         } catch (e: any) {
             console.error(e)
-            toast.error(e.message || "Payment failed")
+            toast.error(e.message || "Payment sequence failed")
         } finally {
             setPaying(false)
         }

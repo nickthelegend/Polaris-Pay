@@ -4,6 +4,7 @@ import CreditVaultABI from './abis/CreditVault.json';
 import LoanEngineABI from './abis/LoanEngine.json';
 import InsurancePoolABI from './abis/InsurancePool.json';
 import MerchantRouterABI from './abis/MerchantRouter.json';
+import PolarisMerchantEscrowABI from './abis/PolarisMerchantEscrow.json';
 import MockERC20ABI from './abis/MockERC20.json';
 import MockOracleRelayerABI from './abis/MockOracleRelayer.json';
 import ScoreManagerABI from './abis/ScoreManager.json';
@@ -13,6 +14,8 @@ export const CONTRACTS = {
         POOL_MANAGER: "0xe799b8f0A37786aa77b7540E5123E4FC103a3661",
         LOAN_ENGINE: "0x47F90ca038a1fdAA370eD8C8221F874270F4b54E",
         SCORE_MANAGER: "0x224c0D64c04c0DBEb1aA6D8103f06a7911a89cd9",
+        MERCHANT_ROUTER: "0x722878c5349e602E6f6A2A3869a5C9213bAe183F",
+        USDC: "0x58e67dEEEcde20f10eD90B5191f08f39e81B6658",
         ORACLE: "0x0000000000000000000000000000000000000FD2"
     },
     SPOKES: {
@@ -53,6 +56,7 @@ export const ABIS = {
     LoanEngine: LoanEngineABI,
     InsurancePool: InsurancePoolABI,
     MerchantRouter: MerchantRouterABI,
+    PolarisMerchantEscrow: PolarisMerchantEscrowABI,
     MockERC20: MockERC20ABI,
     MockOracleRelayer: MockOracleRelayerABI,
     ScoreManager: ScoreManagerABI
