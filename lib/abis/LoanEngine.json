@@ -15,6 +15,11 @@
         "internalType": "address",
         "name": "_verifier",
         "type": "address"
+      },
+      {
+        "internalType": "address",
+        "name": "_protocolFunds",
+        "type": "address"
       }
     ],
     "stateMutability": "nonpayable",
@@ -65,7 +70,13 @@
       {
         "indexed": false,
         "internalType": "uint256",
-        "name": "amount",
+        "name": "principal",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "interest",
         "type": "uint256"
       }
     ],
@@ -135,6 +146,32 @@
     ],
     "name": "RepaymentMade",
     "type": "event"
+  },
+  {
+    "inputs": [],
+    "name": "INTEREST_RATE_BPS",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "PROTOCOL_FEE_BPS",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
   },
   {
     "inputs": [],
@@ -252,6 +289,11 @@
       },
       {
         "internalType": "uint256",
+        "name": "interestAmount",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
         "name": "repaid",
         "type": "uint256"
       },
@@ -314,6 +356,19 @@
         "internalType": "bool",
         "name": "",
         "type": "bool"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "protocolFunds",
+    "outputs": [
+      {
+        "internalType": "contract ProtocolFunds",
+        "name": "",
+        "type": "address"
       }
     ],
     "stateMutability": "view",

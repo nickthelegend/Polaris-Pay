@@ -8,12 +8,14 @@ import PolarisMerchantEscrowABI from './abis/PolarisMerchantEscrow.json';
 import MockERC20ABI from './abis/MockERC20.json';
 import MockOracleRelayerABI from './abis/MockOracleRelayer.json';
 import ScoreManagerABI from './abis/ScoreManager.json';
+import ProtocolFundsABI from './abis/ProtocolFunds.json';
 
 export const CONTRACTS = {
     MASTER: {
-        POOL_MANAGER: "0xe799b8f0A37786aa77b7540E5123E4FC103a3661",
-        LOAN_ENGINE: "0x47F90ca038a1fdAA370eD8C8221F874270F4b54E",
-        SCORE_MANAGER: "0x224c0D64c04c0DBEb1aA6D8103f06a7911a89cd9",
+        POOL_MANAGER: "0xB7f5B6dc3978046c7cEA05EB529e500400290675",
+        LOAN_ENGINE: "0x2a5653E5621A197600757C35abEC1c6C50Ea5344",
+        SCORE_MANAGER: "0x6EfC88aFa5bA8c0f68EbCEd8410c3B1c54b87242",
+        PROTOCOL_FUNDS: "0x91602066C09bdd9B42D1F5eBaC574664fbb27278",
         MERCHANT_ROUTER: "0x722878c5349e602E6f6A2A3869a5C9213bAe183F",
         USDC: "0x58e67dEEEcde20f10eD90B5191f08f39e81B6658",
         ORACLE: "0x0000000000000000000000000000000000000FD2"
@@ -35,9 +37,9 @@ export const CONTRACTS = {
             LIQUIDITY_VAULT: "0xEbE8383ADaEa1Eb2eCFE9AC75d3f5825B0b8a350",
             USDC: "0x36b9FcD3c618E94fF8101669117985142C0b5D75",
             USDT: "0x170FE0F404FD26B4269E6559d1C7C1712743B278",
-            POOL_MANAGER: "0x2a2cc16e7fa8E84169cD1c3bA79b37F2d1577B5F",
-            LOAN_ENGINE: "0xdBA667c63045cceF16fa97DA7512A46cB02AD8FA",
-            SCORE_MANAGER: "0x856442b9DD170cFDE24eB1cdF5F68E1A97e8C5E9",
+            POOL_MANAGER: "0xB7f5B6dc3978046c7cEA05EB529e500400290675",
+            LOAN_ENGINE: "0x2a5653E5621A197600757C35abEC1c6C50Ea5344",
+            SCORE_MANAGER: "0x6EfC88aFa5bA8c0f68EbCEd8410c3B1c54b87242",
             id: 1337
         }
     },
@@ -59,7 +61,8 @@ export const ABIS = {
     PolarisMerchantEscrow: PolarisMerchantEscrowABI,
     MockERC20: MockERC20ABI,
     MockOracleRelayer: MockOracleRelayerABI,
-    ScoreManager: ScoreManagerABI
+    ScoreManager: ScoreManagerABI,
+    ProtocolFunds: ProtocolFundsABI
 };
 
 export const NETWORKS = {

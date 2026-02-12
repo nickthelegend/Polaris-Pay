@@ -247,7 +247,7 @@ export function usePolaris() {
             if (!wallet?.address) return "0";
             const { config, id } = getMasterConfig();
             const poolManager = await getContract(config.POOL_MANAGER, ABIS.PoolManager, id, false);
-            const balance = await poolManager.lpBalance(wallet.address, tokenAddress);
+            const balance = await poolManager.getAssetBalance(wallet.address, tokenAddress);
 
             // Get decimals
             const token = await getContract(tokenAddress, ABIS.MockERC20, id, false);
@@ -444,6 +444,8 @@ export function usePolaris() {
                     loans.push({
                         id: i,
                         principal: formatUnits(loan.principal, 18),
+                        interest: formatUnits(loan.interestAmount, 18),
+                        totalDebt: formatUnits(loan.principal + loan.interestAmount, 18),
                         repaid: formatUnits(loan.repaid, 18),
                         startTime: Number(loan.startTime),
                         status: Number(loan.status),
@@ -529,6 +531,23 @@ export function usePolaris() {
         }
     };
 
+    const getAPY = async () => {
+        try {
+            const { config, id } = getMasterConfig();
+            const loanEngine = await getContract(config.LOAN_ENGINE, ABIS.LoanEngine, id, false);
+            const rate = await loanEngine.INTEREST_RATE_BPS();
+            const fee = await loanEngine.PROTOCOL_FEE_BPS();
+
+            // APY for lenders = (Total Interest * (1 - Fee%)) / Total Assets
+            // Simplified: Rate * (1 - ProtocolFeeBps/10000)
+            const baseRateNum = Number(rate) / 100; // e.g. 10.00
+            const feeFactor = (10000 - Number(fee)) / 10000;
+            return (baseRateNum * feeFactor).toFixed(2);
+        } catch (e) {
+            return "8.00"; // Fallback
+        }
+    };
+
     return {
         loading,
         txHash,
@@ -552,6 +571,7 @@ export function usePolaris() {
         getContract,
         authenticated,
         address: wallet?.address,
-        chainId: wallet?.chainId
+        chainId: wallet?.chainId,
+        getAPY
     };
 }

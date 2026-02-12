@@ -72,6 +72,7 @@ export default function PoolsPage() {
         getLPBalance,
         getUserTotalCollateral,
         getTotalTVL,
+        getAPY,
         getVaultPhysicalBalance,
         loading,
         authenticated,
@@ -99,6 +100,7 @@ export default function PoolsPage() {
     const [totalEquity, setTotalEquity] = useState("0");
     const [totalTVL, setTotalTVL] = useState("0");
     const [ctcLPBalance, setCtcLPBalance] = useState("0");
+    const [apy, setApy] = useState("8.00");
 
     // Default to USC View, but allows selecting which SPOKE to view
     const [selectedView, setSelectedView] = useState<keyof typeof NETWORKS>("USC");
@@ -229,6 +231,9 @@ export default function PoolsPage() {
 
             const aggregatedTVL = await getTotalTVL();
             setTotalTVL(aggregatedTVL);
+
+            const dynamicApy = await getAPY();
+            setApy(dynamicApy);
 
             // 2. Score & Loans (Always Hub-Aggregated)
             const score = await getScore();
@@ -809,9 +814,9 @@ export default function PoolsPage() {
                                                 {refreshing ? <Skeleton className="h-4 w-16" /> : `$${Number(usdcLPBalance).toLocaleString()}`}
                                             </span>
                                         </div>
-                                        <div className="flex flex-col md:block md:col-span-2 md:text-right">
-                                            <span className="md:hidden text-[8px] text-white/20 uppercase font-bold mb-1">APR</span>
-                                            <span className="text-primary text-sm tracking-tighter font-bold">{usdcPool?.apr ?? 14.5}%</span>
+                                        <div className="flex flex-col md:col-span-2 md:text-right">
+                                            <span className="md:hidden text-[9px] text-white/30 uppercase mb-1">APR</span>
+                                            <span className="text-primary text-sm font-bold tracking-tight">{apy}%</span>
                                         </div>
                                     </div>
 
@@ -897,14 +902,17 @@ export default function PoolsPage() {
                                 activeLoans.map((loan) => (
                                     <div key={loan.id} className="p-4 grid grid-cols-4 items-center gap-4">
                                         <span className="text-xs font-bold text-white uppercase">ID: #{loan.id}</span>
-                                        <span className="text-xs text-white uppercase text-right">{loan.principal} USDC</span>
+                                        <div className="flex flex-col text-right">
+                                            <span className="text-xs text-white uppercase">{loan.totalDebt} USDC</span>
+                                            <span className="text-[8px] text-white/40 uppercase">Principal: {loan.principal} + Int: {loan.interest}</span>
+                                        </div>
                                         <span className={`text-[9px] uppercase font-bold text-center ${loan.status === 0 ? 'text-primary' : 'text-white/40'}`}>
                                             {loan.status === 0 ? "LIVE" : "CLOSED"}
                                         </span>
                                         <div className="flex justify-end">
                                             {loan.status === 0 && (
                                                 <button
-                                                    onClick={() => executeRepay(loan.id, (loan.principal - loan.repaid).toString())}
+                                                    onClick={() => executeRepay(loan.id, (parseFloat(loan.totalDebt) - parseFloat(loan.repaid)).toFixed(6))}
                                                     className="bg-white/5 hover:bg-white/10 text-white text-[9px] font-bold px-3 py-1.5 rounded-sm uppercase tracking-widest transition-all"
                                                 >
                                                     Repay_Full

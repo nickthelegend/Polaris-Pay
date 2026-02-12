@@ -15,6 +15,8 @@ By leveraging **Zero-Knowledge Merkle Proofs**, PayEase ensures that assets depo
 - **ZK-Proof Verification**: Secure validation of liquidity transfers using the Gluwa Prover API.
 - **Real-Time Bridge Monitor**: Professional-grade terminal interface to track the status of attestations and Merkle Proof generation.
 - **Integrated Checkout**: Instant payment execution against your combined credit line.
+- **Lender Yield Generation**: Lenders earn passive APY through a shared-based accounting system, automatically distributed from BNPL loan interest.
+- **Protocol Fee Engine**: Automated collection of protocol fees into a secure management vault for ecosystem sustainability.
 
 ---
 
@@ -112,6 +114,8 @@ npm run dev
 - **Finality Tracking**: PayEase waits for 12+ confirmations on Sepolia before allowing a Hub Sync.
 - **Merkle Proofs**: Every credit increase is backed by a verifiable transaction inclusion proof on-chain.
 - **Decentralized Attestation**: Bridge security is handled by the native Creditcoin validator set.
+- **Share-Based Yield Distribution**: Sophisticated accounting mechanism ensures fair and accurate distribution of interest to liquidity providers.
+- **Encapsulated Protocol Funds**: Fees are managed by a dedicated `ProtocolFunds` contract with strictly controlled administrative access.
 
 ---
 
