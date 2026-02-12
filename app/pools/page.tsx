@@ -761,7 +761,7 @@ export default function PoolsPage() {
 
                         <div className="glass-card rounded-lg border border-white/10 overflow-hidden flex flex-col flex-1">
                             <div className="hidden md:grid grid-cols-12 bg-white/5 border-b border-white/10 px-6 py-4">
-                                <div className="col-span-4">
+                                <div className="col-span-3">
                                     <span className="text-[10px] text-white/40 uppercase tracking-widest">Asset_Type</span>
                                 </div>
                                 <div className="col-span-2 text-right">
@@ -773,7 +773,7 @@ export default function PoolsPage() {
                                 <div className="col-span-2 text-right">
                                     <span className="text-[10px] text-white/40 uppercase tracking-widest">APR</span>
                                 </div>
-                                <div className="col-span-2 text-right">
+                                <div className="col-span-3 text-right">
                                     <span className="text-[10px] text-white/40 uppercase tracking-widest">Control</span>
                                 </div>
                             </div>
@@ -781,7 +781,7 @@ export default function PoolsPage() {
                             <div className="overflow-y-auto divide-y divide-white/5">
                                 {/* Pool Row: USDC */}
                                 <div className="flex flex-col md:grid md:grid-cols-12 px-4 sm:px-6 py-5 hover:bg-white/[0.04] transition-all items-start md:items-center gap-4 md:gap-0">
-                                    <div className="w-full md:col-span-4 flex items-center gap-4">
+                                    <div className="w-full md:col-span-3 flex items-center gap-4">
                                         <div className="size-10 bg-blue-500/10 rounded-sm flex items-center justify-center border border-blue-500/20 shrink-0">
                                             <Coins className="w-5 h-5 text-blue-400" />
                                         </div>
@@ -814,7 +814,7 @@ export default function PoolsPage() {
                                         </div>
                                     </div>
 
-                                    <div className="w-full md:col-span-2 flex justify-end gap-3 mt-2 md:mt-0">
+                                    <div className="w-full md:col-span-3 flex justify-end gap-3 mt-2 md:mt-0">
                                         <button
                                             onClick={() => openDepositModal(selectedView === 'USC' ? CONTRACTS.SPOKES.SEPOLIA.USDC : (CONTRACTS.SPOKES as Record<string, any>)[selectedView].USDC, "USDC")}
                                             className="flex-1 md:flex-none bg-primary/90 hover:bg-primary text-primary-foreground px-4 py-2 md:py-1.5 rounded-sm font-black text-[10px] uppercase cursor-pointer transition-all active:scale-95"
@@ -832,7 +832,7 @@ export default function PoolsPage() {
 
                                 {/* Pool Row: USDT */}
                                 <div className="flex flex-col md:grid md:grid-cols-12 px-4 sm:px-6 py-5 hover:bg-white/[0.04] transition-all items-start md:items-center gap-4 md:gap-0">
-                                    <div className="w-full md:col-span-4 flex items-center gap-4">
+                                    <div className="w-full md:col-span-3 flex items-center gap-4">
                                         <div className="size-10 bg-green-500/10 rounded-sm flex items-center justify-center border border-green-500/20 shrink-0">
                                             <Coins className="w-5 h-5 text-green-400" />
                                         </div>
@@ -865,7 +865,7 @@ export default function PoolsPage() {
                                         </div>
                                     </div>
 
-                                    <div className="w-full md:col-span-2 flex justify-end gap-3 mt-2 md:mt-0">
+                                    <div className="w-full md:col-span-3 flex justify-end gap-3 mt-2 md:mt-0">
                                         <button
                                             onClick={() => openDepositModal(selectedView === 'USC' ? CONTRACTS.SPOKES.SEPOLIA.USDT : (CONTRACTS.SPOKES as Record<string, any>)[selectedView].USDT, "USDT")}
                                             className="flex-1 md:flex-none bg-primary/90 hover:bg-primary text-primary-foreground px-4 py-2 md:py-1.5 rounded-sm font-black text-[10px] uppercase cursor-pointer transition-all active:scale-95"
