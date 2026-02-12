@@ -22,6 +22,7 @@ import {
     ExternalLink
 } from "lucide-react"
 import { Skeleton } from "@/components/ui/skeleton"
+import { CryptoIcon } from '@ledgerhq/crypto-icons';
 
 import {
     DropdownMenu,
@@ -783,7 +784,7 @@ export default function PoolsPage() {
                                 <div className="flex flex-col md:grid md:grid-cols-12 px-4 sm:px-6 py-5 hover:bg-white/[0.04] transition-all items-start md:items-center gap-4 md:gap-0">
                                     <div className="w-full md:col-span-3 flex items-center gap-4">
                                         <div className="size-10 bg-blue-500/10 rounded-sm flex items-center justify-center border border-blue-500/20 shrink-0">
-                                            <Coins className="w-5 h-5 text-blue-400" />
+                                            <CryptoIcon ledgerId="ethereum/erc20/usd_coin__erc20_" ticker="USDC" network="ethereum" size="20px" />
                                         </div>
                                         <div className="flex flex-col">
                                             <div className="flex items-center gap-2">
@@ -834,7 +835,7 @@ export default function PoolsPage() {
                                 <div className="flex flex-col md:grid md:grid-cols-12 px-4 sm:px-6 py-5 hover:bg-white/[0.04] transition-all items-start md:items-center gap-4 md:gap-0">
                                     <div className="w-full md:col-span-3 flex items-center gap-4">
                                         <div className="size-10 bg-green-500/10 rounded-sm flex items-center justify-center border border-green-500/20 shrink-0">
-                                            <Coins className="w-5 h-5 text-green-400" />
+                                            <CryptoIcon ledgerId="ethereum/erc20/usd_tether__erc20_" ticker="USDT" network="ethereum" size="20px" />
                                         </div>
                                         <div className="flex flex-col">
                                             <div className="flex items-center gap-2">
