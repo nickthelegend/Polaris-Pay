@@ -346,20 +346,29 @@ export function usePolaris() {
         try {
             if (!wallet?.address) return "0";
             const { config, id } = getMasterConfig();
-            const scoreManager = await getContract(config.SCORE_MANAGER, ABIS.ScoreManager, id, false);
-            const limit = await scoreManager.getCreditLimit(wallet.address);
 
-            const limitVal = parseFloat(formatUnits(limit, 18));
-            if (limitVal === 0) {
-                // FALLBACK: If the contract returns 0 but the user has equity, 
-                // calculate a shadow limit (e.g. 50% of equity) to keep UI functional.
+            // 1. Get raw limit from ScoreManager
+            const scoreManager = await getContract(config.SCORE_MANAGER, ABIS.ScoreManager, id, false);
+            const totalLimit = await scoreManager.getCreditLimit(wallet.address);
+
+            // 2. Get active debt from LoanEngine
+            const loanEngine = await getContract(config.LOAN_ENGINE, ABIS.LoanEngine, id, false);
+            const activeDebt = await loanEngine.userActiveDebt(wallet.address);
+
+            // 3. Calculate Available Limit
+            const available = totalLimit > activeDebt ? totalLimit - activeDebt : BigInt(0);
+
+            const limitVal = parseFloat(formatUnits(available, 18));
+
+            // FALLBACK Logic for demo: if available is 0 but it's first time, we check equity
+            if (limitVal === 0 && activeDebt === BigInt(0)) {
                 const equity = await getUserTotalCollateral();
-                return (parseFloat(equity) * 0.5).toString();
+                return (parseFloat(equity) * 0.3).toString(); // Base 30% LTV
             }
+
             return limitVal.toString();
         } catch (error) {
             console.error("Fetch credit limit failed:", error);
-            // Fallback for demo
             return "0";
         }
     };
