@@ -13,22 +13,77 @@ import {
 
 import { LandingPage } from "@/components/landing-page"
 import { usePrivy } from "@privy-io/react-auth"
+import { usePolaris } from "@/hooks/use-polaris"
+import { useState, useEffect } from "react"
+import { formatDistanceToNow } from "date-fns"
 
 const fetcher = (url: string) => fetch(url).then((r) => r.json())
 
 export default function Page() {
   const { authenticated } = usePrivy()
-  const { data: limitsData } = useSWR("/api/limits", fetcher, { refreshInterval: 15_000 })
+  const { getCreditLimit, getLoans, loading: polarisLoading } = usePolaris()
   const { data: txData } = useSWR("/api/transactions", fetcher, { refreshInterval: 15_000 })
+
+  const [realStats, setRealStats] = useState({
+    limit: 200,
+    used: 0,
+    available: 200,
+    pct: 0,
+    nextDue: "N/A",
+    minDue: "0.00"
+  })
+
+  useEffect(() => {
+    if (authenticated) {
+      const updateStats = async () => {
+        try {
+          const limit = await getCreditLimit()
+          const loans = await getLoans()
+
+          let totalUsed = 0
+          let earliestNextDue = "N/A"
+          let minDue = 0
+
+          loans.forEach((l: any) => {
+            if (l.status === 0) { // Active
+              const outstanding = parseFloat(l.principal) - parseFloat(l.repaid)
+              totalUsed += outstanding
+              // minDue could be approximated as 25% of outstanding for testnet demo
+              minDue += outstanding * 0.25
+
+              // In a real app we'd fetch dueDates[0] from contract, 
+              // but use-polaris currently formatUnits(l.startTime).
+              // Let's assume +14 days from startTime for demo if not explicitly in l
+              const dueDate = new Date(l.startTime * 1000 + 14 * 24 * 60 * 60 * 1000)
+              earliestNextDue = dueDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+            }
+          })
+
+          const totalLimit = parseFloat(limit) + totalUsed
+          const available = parseFloat(limit)
+          const usagePct = totalLimit > 0 ? Math.round((totalUsed / totalLimit) * 100) : 0
+
+          setRealStats({
+            limit: totalLimit,
+            used: totalUsed,
+            available: available,
+            pct: usagePct,
+            nextDue: earliestNextDue,
+            minDue: minDue.toFixed(2)
+          })
+        } catch (e) {
+          console.error("Failed to update terminal stats:", e)
+        }
+      }
+      updateStats()
+    }
+  }, [authenticated, txData])
 
   if (!authenticated) {
     return <LandingPage />
   }
 
-  const total = limitsData?.currentLimit ?? 200
-  const used = limitsData?.used ?? 32
-  const available = Math.max(0, total - used)
-  const pct = Math.min(100, Math.round((used / total) * 100))
+  const { limit: total, used, available, pct } = realStats
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 font-mono">
@@ -82,18 +137,18 @@ export default function Page() {
 
           <div className="mt-8 pt-8 border-t border-border/20">
             <div className="text-[10px] text-foreground/50 uppercase tracking-widest mb-4">Upcoming Obligations</div>
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div className="bg-background/40 border border-border/30 rounded-xl p-4">
                 <div className="text-[9px] text-foreground/40 uppercase mb-2">Next Settlement</div>
-                <div className="text-sm font-bold">Oct 24</div>
+                <div className="text-sm font-bold">{realStats.nextDue}</div>
               </div>
               <div className="bg-background/40 border border-border/30 rounded-xl p-4">
                 <div className="text-[9px] text-foreground/40 uppercase mb-2">Minimum Due</div>
-                <div className="text-sm font-bold text-primary">$12.40</div>
+                <div className="text-sm font-bold text-primary">${realStats.minDue}</div>
               </div>
               <div className="bg-background/40 border border-border/30 rounded-xl p-4">
                 <div className="text-[9px] text-foreground/40 uppercase mb-2">Accrued Interest</div>
-                <div className="text-sm font-bold">0.0021 BTC</div>
+                <div className="text-sm font-bold">0.00% APR</div>
               </div>
             </div>
           </div>
@@ -170,38 +225,30 @@ export default function Page() {
           </div>
 
           <div className="space-y-6 flex-grow">
-            {txData?.transactions?.map((tx: any, i: number) => (
-              <div key={i} className="flex gap-4 group cursor-pointer">
-                <div className="w-0.5 bg-primary/20 group-hover:bg-primary transition-colors" />
-                <div className="space-y-1">
-                  <div className="text-[10px] font-bold tracking-wider uppercase text-foreground/90">
-                    TX_{Math.random().toString(36).substring(7).toUpperCase()}_AUTH
+            {(txData?.transactions || []).length > 0 ? (
+              txData?.transactions?.slice(0, 5).map((tx: any, i: number) => (
+                <div key={i} className="flex gap-4 group cursor-pointer">
+                  <div className="w-0.5 bg-primary/20 group-hover:bg-primary transition-colors" />
+                  <div className="space-y-1">
+                    <div className="text-[10px] font-bold tracking-wider uppercase text-foreground/90 flex items-center gap-2">
+                      TX_{tx.tx_hash?.substring(2, 8).toUpperCase()}_AUTH
+                      {tx.category === 'repayment' && <span className="text-[8px] bg-green-500/20 text-green-400 px-1 rounded">REPAY</span>}
+                    </div>
+                    <div className="text-[11px] text-foreground/50">
+                      {tx.title} // -${parseFloat(tx.amount).toFixed(2)}
+                    </div>
                   </div>
-                  <div className="text-[11px] text-foreground/50">
-                    Merchant: {tx.title} // -${tx.amount.toFixed(2)}
+                  <div className="ml-auto text-[10px] text-foreground/20 whitespace-nowrap">
+                    {formatDistanceToNow(new Date(tx.created_at), { addSuffix: true }).toUpperCase()}
                   </div>
                 </div>
-                <div className="ml-auto text-[10px] text-foreground/20 whitespace-nowrap">
-                  {i === 0 ? "2M AGO" : i === 1 ? "1H AGO" : "4H AGO"}
-                </div>
+              ))
+            ) : (
+              <div className="flex flex-col items-center justify-center py-12 text-center opacity-30">
+                <History className="w-8 h-8 mb-2" />
+                <span className="text-[10px] uppercase tracking-widest">No Recent Activity</span>
               </div>
-            ))}
-
-            {/* Extra mock records to fill space */}
-            <div className="flex gap-4 group cursor-pointer opacity-50">
-              <div className="w-0.5 bg-primary/20 group-hover:bg-primary transition-colors" />
-              <div className="space-y-1">
-                <div className="text-[10px] font-bold tracking-wider uppercase text-foreground/90">
-                  SYS_LIMIT_UP
-                </div>
-                <div className="text-[11px] text-foreground/50">
-                  Score update: +$50.00 ceiling
-                </div>
-              </div>
-              <div className="ml-auto text-[10px] text-foreground/20 whitespace-nowrap">
-                1D AGO
-              </div>
-            </div>
+            )}
           </div>
 
           <Link href="/transactions" className="mt-8 text-[10px] text-foreground/40 uppercase hover:text-primary transition-colors flex items-center gap-2 group">
