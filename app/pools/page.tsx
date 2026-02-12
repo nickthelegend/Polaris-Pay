@@ -628,35 +628,35 @@ export default function PoolsPage() {
                 </div>
 
                 <section className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                    <div className="glass-card rounded-lg border border-white/10 overflow-hidden shadow-2xl col-span-2">
+                    <div className="glass-card rounded-lg border border-white/10 overflow-hidden shadow-2xl col-span-1 lg:col-span-2">
                         <div className="bg-white/5 px-4 py-2 border-b border-white/10 flex justify-between items-center text-white">
                             <span className="text-[10px] text-white/40 uppercase tracking-widest">Global_Status</span>
                             <span className="text-primary text-[10px] animate-pulse flex items-center gap-1.5">
                                 <span className="w-1.5 h-1.5 bg-primary rounded-full" />
-                                CONNECTED: {selectedView}
+                                <span className="hidden sm:inline">CONNECTED:</span> {selectedView}
                             </span>
                         </div>
-                        <div className="grid grid-cols-1 md:grid-cols-3 divide-y md:divide-y-0 md:divide-x divide-white/10 text-white">
-                            <div className="p-6 flex flex-col gap-1">
+                        <div className="grid grid-cols-1 sm:grid-cols-3 divide-y sm:divide-y-0 sm:divide-x divide-white/10 text-white">
+                            <div className="p-4 sm:p-6 flex flex-col gap-1">
                                 <span className="text-[10px] text-white/40 tracking-wider uppercase">Aggregated_Value_Locked</span>
                                 <div className="flex items-baseline gap-2 text-white">
-                                    <span className="text-white text-3xl font-bold tracking-tighter">
+                                    <span className="text-white text-2xl sm:text-3xl font-bold tracking-tighter">
                                         {refreshing ? <Skeleton className="h-8 w-32" /> : `$${Number(totalTVL).toLocaleString()}`}
                                     </span>
                                 </div>
                             </div>
-                            <div className="p-6 flex flex-col gap-1">
+                            <div className="p-4 sm:p-6 flex flex-col gap-1">
                                 <span className="text-[10px] text-white/40 tracking-wider uppercase">Your_Equity</span>
                                 <div className="flex items-baseline gap-2 text-white">
-                                    <span className="text-white text-3xl font-bold tracking-tighter">
+                                    <span className="text-white text-2xl sm:text-3xl font-bold tracking-tighter">
                                         {refreshing ? <Skeleton className="h-8 w-32" /> : `$${Number(totalEquity).toLocaleString()}`}
                                     </span>
                                 </div>
                             </div>
-                            <div className="p-6 flex flex-col gap-1">
+                            <div className="p-4 sm:p-6 flex flex-col gap-1">
                                 <span className="text-[10px] text-white/40 tracking-wider uppercase">Active_Debt</span>
                                 <div className="flex items-baseline gap-2">
-                                    <span className="text-red-400 text-3xl font-bold tracking-tighter">{activeLoans.filter(l => l.status === 0).length}</span>
+                                    <span className="text-red-400 text-2xl sm:text-3xl font-bold tracking-tighter">{activeLoans.filter(l => l.status === 0).length}</span>
                                     <span className="text-white/40 text-[10px] uppercase">LOANS</span>
                                 </div>
                             </div>
@@ -671,24 +671,24 @@ export default function PoolsPage() {
                             <div className="absolute top-0 right-0 p-4 opacity-5">
                                 <ShieldCheck className="w-24 h-24 text-primary" />
                             </div>
-                            <div className="flex flex-col gap-1 z-10">
+                            <div className="flex flex-row sm:flex-col justify-between sm:justify-center items-center sm:items-start gap-1 z-10">
                                 <span className="text-[10px] text-white/40 tracking-wider uppercase">Polaris_FICO</span>
                                 <div className="flex items-baseline gap-2">
-                                    <span className={`text-4xl font-black tracking-tighter ${Number(userScore) > 700 ? 'text-primary' : Number(userScore) > 500 ? 'text-yellow-400' : 'text-red-400'}`}>
+                                    <span className={`text-3xl sm:text-4xl font-black tracking-tighter ${Number(userScore) > 700 ? 'text-primary' : Number(userScore) > 500 ? 'text-yellow-400' : 'text-red-400'}`}>
                                         {userScore}
                                     </span>
                                     <span className="text-white/40 text-[10px] font-bold">/ 850</span>
                                 </div>
                             </div>
-                            <div className="flex flex-col gap-1 z-10">
-                                <span className="text-[10px] text-white/40 tracking-wider uppercase">Combined_Credit_Limit</span>
-                                <span className="text-white text-xl font-bold tracking-tight">
+                            <div className="flex flex-row sm:flex-col justify-between sm:justify-center items-center sm:items-start gap-1 z-10">
+                                <span className="text-[10px] text-white/40 tracking-wider uppercase">Credit_Limit</span>
+                                <span className="text-white text-lg sm:text-xl font-bold tracking-tight">
                                     {loading ? <Skeleton className="h-6 w-32" /> : `$${Number(creditLimit).toLocaleString()} USDC`}
                                 </span>
                             </div>
                             <button
                                 onClick={() => setIsLoanOpen(true)}
-                                className="mt-2 bg-primary/20 hover:bg-primary/30 text-primary border border-primary/50 py-2 rounded-sm font-bold text-[10px] uppercase tracking-widest transition-all"
+                                className="mt-2 bg-primary/20 hover:bg-primary/30 text-primary border border-primary/50 py-2.5 rounded-sm font-bold text-[10px] uppercase tracking-widest transition-all"
                             >
                                 Get_Credit_Line
                             </button>
@@ -698,7 +698,7 @@ export default function PoolsPage() {
                                 <div className="mt-2 bg-red-500/10 border border-red-500/20 p-2 rounded-sm flex items-center gap-2 animate-pulse cursor-pointer" onClick={() => setIsSyncOpen(true)}>
                                     <RefreshCw className="w-3 h-3 text-red-400" />
                                     <span className="text-[9px] font-bold text-red-400 uppercase tracking-widest">
-                                        SYNC_REQUIRED_FOR_CREDIT_LIMIT
+                                        SYNC_REQUIRED
                                     </span>
                                 </div>
                             )}
@@ -709,17 +709,17 @@ export default function PoolsPage() {
 
                 <div className="flex flex-col gap-6">
                     <section className="flex flex-col gap-4">
-                        <div className="flex items-center justify-between flex-wrap gap-4">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                             <div className="flex items-center gap-2">
                                 <LayoutDashboard className="w-4 h-4 text-primary" />
                                 <h2 className="text-white text-xs font-bold uppercase tracking-widest">Fleet_Operations</h2>
                             </div>
-                            <div className="flex items-center gap-2">
+                            <div className="flex flex-wrap items-center gap-2">
                                 <DropdownMenu>
                                     <DropdownMenuTrigger asChild>
-                                        <button className="flex items-center gap-2 bg-white/5 border border-white/10 px-4 py-2 rounded-sm hover:bg-white/10 transition-all cursor-pointer min-w-[180px]">
+                                        <button className="flex items-center gap-2 bg-white/5 border border-white/10 px-3 py-2 rounded-sm hover:bg-white/10 transition-all cursor-pointer min-w-[140px] sm:min-w-[180px]">
                                             <span className={`w-1.5 h-1.5 rounded-full ${selectedView === 'USC' ? 'bg-primary' : 'bg-blue-400'}`} />
-                                            <span className="text-[10px] text-white font-bold tracking-widest uppercase flex-1 text-left">
+                                            <span className="text-[9px] sm:text-[10px] text-white font-bold tracking-widest uppercase flex-1 text-left">
                                                 {NETWORKS[selectedView].name}
                                             </span>
                                             <ChevronDown className="w-3 h-3 text-white/40" />
@@ -739,26 +739,28 @@ export default function PoolsPage() {
                                     </DropdownMenuContent>
                                 </DropdownMenu>
 
-                                <button
-                                    onClick={() => setIsSyncOpen(true)}
-                                    className="flex items-center gap-2 bg-primary/10 border border-primary/20 px-4 py-2 rounded-sm hover:bg-primary/20 transition-all text-[10px] text-primary uppercase tracking-widest"
-                                >
-                                    <Zap className="w-3 h-3" />
-                                    SYNC_MANUAL
-                                </button>
+                                <div className="flex items-center gap-2">
+                                    <button
+                                        onClick={() => setIsSyncOpen(true)}
+                                        className="flex items-center gap-2 bg-primary/10 border border-primary/20 px-3 py-2 rounded-sm hover:bg-primary/20 transition-all text-[9px] sm:text-[10px] text-primary uppercase tracking-widest"
+                                    >
+                                        <Zap className="hidden sm:block w-3 h-3" />
+                                        SYNC
+                                    </button>
 
-                                <button
-                                    onClick={refreshData}
-                                    className="flex items-center gap-2 bg-white/5 border border-white/10 px-4 py-2 rounded-sm hover:bg-white/10 transition-all text-[10px] text-white/70 uppercase tracking-widest"
-                                >
-                                    <RefreshCw className={`w-3 h-3 text-primary ${loading ? "animate-spin" : ""}`} />
-                                    REFRESH
-                                </button>
+                                    <button
+                                        onClick={refreshData}
+                                        className="flex items-center gap-2 bg-white/5 border border-white/10 px-3 py-2 rounded-sm hover:bg-white/10 transition-all text-[9px] sm:text-[10px] text-white/70 uppercase tracking-widest"
+                                    >
+                                        <RefreshCw className={`w-3 h-3 text-primary ${loading ? "animate-spin" : ""}`} />
+                                        REFRESH
+                                    </button>
+                                </div>
                             </div>
                         </div>
 
-                        <div className="glass-card rounded-lg border border-white/10 overflow-hidden flex flex-col flex-1 min-h-[400px]">
-                            <div className="grid grid-cols-12 bg-white/5 border-b border-white/10 px-6 py-4">
+                        <div className="glass-card rounded-lg border border-white/10 overflow-hidden flex flex-col flex-1">
+                            <div className="hidden md:grid grid-cols-12 bg-white/5 border-b border-white/10 px-6 py-4">
                                 <div className="col-span-4">
                                     <span className="text-[10px] text-white/40 uppercase tracking-widest">Asset_Type</span>
                                 </div>
@@ -776,11 +778,11 @@ export default function PoolsPage() {
                                 </div>
                             </div>
 
-                            <div className="overflow-y-auto">
+                            <div className="overflow-y-auto divide-y divide-white/5">
                                 {/* Pool Row: USDC */}
-                                <div className="grid grid-cols-12 px-6 py-5 border-b border-white/5 hover:bg-white/[0.04] transition-all items-center">
-                                    <div className="col-span-4 flex items-center gap-4">
-                                        <div className="size-10 bg-blue-500/10 rounded-sm flex items-center justify-center border border-blue-500/20">
+                                <div className="flex flex-col md:grid md:grid-cols-12 px-4 sm:px-6 py-5 hover:bg-white/[0.04] transition-all items-start md:items-center gap-4 md:gap-0">
+                                    <div className="w-full md:col-span-4 flex items-center gap-4">
+                                        <div className="size-10 bg-blue-500/10 rounded-sm flex items-center justify-center border border-blue-500/20 shrink-0">
                                             <Coins className="w-5 h-5 text-blue-400" />
                                         </div>
                                         <div className="flex flex-col">
@@ -791,29 +793,37 @@ export default function PoolsPage() {
                                             <span className="text-[10px] text-white/30 uppercase">{NETWORKS[selectedView as keyof typeof NETWORKS].name}</span>
                                         </div>
                                     </div>
-                                    <div className="col-span-2 text-right">
-                                        <span className="text-primary/80 text-sm tracking-tighter font-bold font-mono">
-                                            {refreshing ? <Skeleton className="h-4 w-16 ml-auto" /> : `$${Number(usdcPhysicalLiq).toLocaleString()}`}
-                                        </span>
+
+                                    {/* Mobile Stats Row */}
+                                    <div className="grid grid-cols-3 w-full md:contents">
+                                        <div className="flex flex-col md:block md:col-span-2 md:text-right">
+                                            <span className="md:hidden text-[8px] text-white/20 uppercase font-bold mb-1">Reserves</span>
+                                            <span className="text-primary/80 text-sm tracking-tighter font-bold font-mono">
+                                                {refreshing ? <Skeleton className="h-4 w-16" /> : `$${Number(usdcPhysicalLiq).toLocaleString()}`}
+                                            </span>
+                                        </div>
+                                        <div className="flex flex-col md:block md:col-span-2 md:text-right">
+                                            <span className="md:hidden text-[8px] text-white/20 uppercase font-bold mb-1">Equity</span>
+                                            <span className="text-white text-sm tracking-tighter font-medium font-mono">
+                                                {refreshing ? <Skeleton className="h-4 w-16" /> : `$${Number(usdcLPBalance).toLocaleString()}`}
+                                            </span>
+                                        </div>
+                                        <div className="flex flex-col md:block md:col-span-2 md:text-right">
+                                            <span className="md:hidden text-[8px] text-white/20 uppercase font-bold mb-1">APR</span>
+                                            <span className="text-primary text-sm tracking-tighter font-bold">{usdcPool?.apr ?? 14.5}%</span>
+                                        </div>
                                     </div>
-                                    <div className="col-span-2 text-right">
-                                        <span className="text-white text-sm tracking-tighter font-medium font-mono">
-                                            {refreshing ? <Skeleton className="h-4 w-16 ml-auto" /> : `$${Number(usdcLPBalance).toLocaleString()}`}
-                                        </span>
-                                    </div>
-                                    <div className="col-span-2 text-right">
-                                        <span className="text-primary text-sm tracking-tighter font-bold">{usdcPool?.apr ?? 0}%</span>
-                                    </div>
-                                    <div className="col-span-2 flex justify-end gap-3">
+
+                                    <div className="w-full md:col-span-2 flex justify-end gap-3 mt-2 md:mt-0">
                                         <button
                                             onClick={() => openDepositModal(selectedView === 'USC' ? CONTRACTS.SPOKES.SEPOLIA.USDC : (CONTRACTS.SPOKES as Record<string, any>)[selectedView].USDC, "USDC")}
-                                            className="bg-primary/90 hover:bg-primary text-primary-foreground px-4 py-1.5 rounded-sm font-black text-[10px] uppercase cursor-pointer transition-all active:scale-95"
+                                            className="flex-1 md:flex-none bg-primary/90 hover:bg-primary text-primary-foreground px-4 py-2 md:py-1.5 rounded-sm font-black text-[10px] uppercase cursor-pointer transition-all active:scale-95"
                                         >
                                             Deposit
                                         </button>
                                         <button
                                             onClick={() => openWithdrawModal(selectedView === 'USC' ? CONTRACTS.SPOKES.SEPOLIA.USDC : (CONTRACTS.SPOKES as Record<string, any>)[selectedView].USDC, "USDC")}
-                                            className="border border-white/10 text-white/60 hover:text-white hover:bg-white/5 px-4 py-1.5 rounded-sm font-bold text-[10px] uppercase transition-all active:scale-95"
+                                            className="flex-1 md:flex-none border border-white/10 text-white/60 hover:text-white hover:bg-white/5 px-4 py-2 md:py-1.5 rounded-sm font-bold text-[10px] uppercase transition-all active:scale-95"
                                         >
                                             Withdraw
                                         </button>
@@ -821,9 +831,9 @@ export default function PoolsPage() {
                                 </div>
 
                                 {/* Pool Row: USDT */}
-                                <div className="grid grid-cols-12 px-6 py-5 border-b border-white/5 hover:bg-white/[0.04] transition-all items-center">
-                                    <div className="col-span-4 flex items-center gap-4">
-                                        <div className="size-10 bg-green-500/10 rounded-sm flex items-center justify-center border border-green-500/20">
+                                <div className="flex flex-col md:grid md:grid-cols-12 px-4 sm:px-6 py-5 hover:bg-white/[0.04] transition-all items-start md:items-center gap-4 md:gap-0">
+                                    <div className="w-full md:col-span-4 flex items-center gap-4">
+                                        <div className="size-10 bg-green-500/10 rounded-sm flex items-center justify-center border border-green-500/20 shrink-0">
                                             <Coins className="w-5 h-5 text-green-400" />
                                         </div>
                                         <div className="flex flex-col">
@@ -834,29 +844,37 @@ export default function PoolsPage() {
                                             <span className="text-[10px] text-white/30 uppercase">{NETWORKS[selectedView as keyof typeof NETWORKS].name}</span>
                                         </div>
                                     </div>
-                                    <div className="col-span-2 text-right">
-                                        <span className="text-primary/80 text-sm tracking-tighter font-bold font-mono">
-                                            {refreshing ? <Skeleton className="h-4 w-16 ml-auto" /> : `$${Number(usdtPhysicalLiq).toLocaleString()}`}
-                                        </span>
+
+                                    {/* Mobile Stats Row */}
+                                    <div className="grid grid-cols-3 w-full md:contents">
+                                        <div className="flex flex-col md:block md:col-span-2 md:text-right">
+                                            <span className="md:hidden text-[8px] text-white/20 uppercase font-bold mb-1">Reserves</span>
+                                            <span className="text-primary/80 text-sm tracking-tighter font-bold font-mono">
+                                                {refreshing ? <Skeleton className="h-4 w-16" /> : `$${Number(usdtPhysicalLiq).toLocaleString()}`}
+                                            </span>
+                                        </div>
+                                        <div className="flex flex-col md:block md:col-span-2 md:text-right">
+                                            <span className="md:hidden text-[8px] text-white/20 uppercase font-bold mb-1">Equity</span>
+                                            <span className="text-white text-sm tracking-tighter font-medium font-mono">
+                                                {refreshing ? <Skeleton className="h-4 w-16" /> : `$${Number(usdtLPBalance).toLocaleString()}`}
+                                            </span>
+                                        </div>
+                                        <div className="flex flex-col md:block md:col-span-2 md:text-right">
+                                            <span className="md:hidden text-[8px] text-white/20 uppercase font-bold mb-1">APR</span>
+                                            <span className="text-primary text-sm tracking-tighter font-bold">{usdtPool?.apr ?? 14.5}%</span>
+                                        </div>
                                     </div>
-                                    <div className="col-span-2 text-right">
-                                        <span className="text-white text-sm tracking-tighter font-medium font-mono">
-                                            {refreshing ? <Skeleton className="h-4 w-16 ml-auto" /> : `$${Number(usdtLPBalance).toLocaleString()}`}
-                                        </span>
-                                    </div>
-                                    <div className="col-span-2 text-right">
-                                        <span className="text-primary text-sm tracking-tighter font-bold">{usdtPool?.apr ?? 0}%</span>
-                                    </div>
-                                    <div className="col-span-2 flex justify-end gap-3">
+
+                                    <div className="w-full md:col-span-2 flex justify-end gap-3 mt-2 md:mt-0">
                                         <button
                                             onClick={() => openDepositModal(selectedView === 'USC' ? CONTRACTS.SPOKES.SEPOLIA.USDT : (CONTRACTS.SPOKES as Record<string, any>)[selectedView].USDT, "USDT")}
-                                            className="bg-primary/90 hover:bg-primary text-primary-foreground px-4 py-1.5 rounded-sm font-black text-[10px] uppercase cursor-pointer transition-all active:scale-95"
+                                            className="flex-1 md:flex-none bg-primary/90 hover:bg-primary text-primary-foreground px-4 py-2 md:py-1.5 rounded-sm font-black text-[10px] uppercase cursor-pointer transition-all active:scale-95"
                                         >
                                             Deposit
                                         </button>
                                         <button
                                             onClick={() => openWithdrawModal(selectedView === 'USC' ? CONTRACTS.SPOKES.SEPOLIA.USDT : (CONTRACTS.SPOKES as Record<string, any>)[selectedView].USDT, "USDT")}
-                                            className="border border-white/10 text-white/60 hover:text-white hover:bg-white/5 px-4 py-1.5 rounded-sm font-bold text-[10px] uppercase transition-all active:scale-95"
+                                            className="flex-1 md:flex-none border border-white/10 text-white/60 hover:text-white hover:bg-white/5 px-4 py-2 md:py-1.5 rounded-sm font-bold text-[10px] uppercase transition-all active:scale-95"
                                         >
                                             Withdraw
                                         </button>
