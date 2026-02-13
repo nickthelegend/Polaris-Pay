@@ -9,6 +9,7 @@ import MockERC20ABI from './abis/MockERC20.json';
 import MockOracleRelayerABI from './abis/MockOracleRelayer.json';
 import ScoreManagerABI from './abis/ScoreManager.json';
 import ProtocolFundsABI from './abis/ProtocolFunds.json';
+import CreditOracleABI from './abis/CreditOracle.json';
 
 export const CONTRACTS = {
     MASTER: {
@@ -17,6 +18,7 @@ export const CONTRACTS = {
         SCORE_MANAGER: "0x6EfC88aFa5bA8c0f68EbCEd8410c3B1c54b87242",
         PROTOCOL_FUNDS: "0x91602066C09bdd9B42D1F5eBaC574664fbb27278",
         MERCHANT_ROUTER: "0x722878c5349e602E6f6A2A3869a5C9213bAe183F",
+        CREDIT_ORACLE: "0x7EfF6789723046Cc3cEA05eB529E500400290675", // New deployment
         USDC: "0x58e67dEEEcde20f10eD90B5191f08f39e81B6658",
         ORACLE: "0x0000000000000000000000000000000000000FD2"
     },
@@ -34,12 +36,14 @@ export const CONTRACTS = {
             id: 296
         },
         GANACHE: {
-            LIQUIDITY_VAULT: "0xEbE8383ADaEa1Eb2eCFE9AC75d3f5825B0b8a350",
-            USDC: "0x36b9FcD3c618E94fF8101669117985142C0b5D75",
-            USDT: "0x170FE0F404FD26B4269E6559d1C7C1712743B278",
-            POOL_MANAGER: "0xB7f5B6dc3978046c7cEA05EB529e500400290675",
-            LOAN_ENGINE: "0x2a5653E5621A197600757C35abEC1c6C50Ea5344",
-            SCORE_MANAGER: "0x6EfC88aFa5bA8c0f68EbCEd8410c3B1c54b87242",
+            LIQUIDITY_VAULT: "0xf12b4A964C37410e96B5c4DCC5CC668aA6Cb4dDb",
+            USDC: "0xb1935D830BEf619634a4450e154d5477b8F48Fe5",
+            USDT: "0x93B361C963e4286cc8296bD2dE5546f3C494D746",
+            POOL_MANAGER: "0xa196C48B229a026a6F55d2ece742276092F4Bc32",
+            CREDIT_ORACLE: "0x9260fD34Be71Fa6C8DFd7a989a0b64545FF5C0E9",
+            SCORE_MANAGER: "0xC1b3409Fb0c93Fed4A6cE046557cBE042d5A40Dc",
+            LOAN_ENGINE: "0xe9f47f5f0D1A5bd5BfeCf46c48E72206fD7E4e82",
+            MERCHANT_ROUTER: "0xCC5B2C15D50dBE201279533a1E3fDd643F8772bb",
             id: 1337
         }
     },
@@ -62,7 +66,8 @@ export const ABIS = {
     MockERC20: MockERC20ABI,
     MockOracleRelayer: MockOracleRelayerABI,
     ScoreManager: ScoreManagerABI,
-    ProtocolFunds: ProtocolFundsABI
+    ProtocolFunds: ProtocolFundsABI,
+    CreditOracle: CreditOracleABI
 };
 
 export const NETWORKS = {

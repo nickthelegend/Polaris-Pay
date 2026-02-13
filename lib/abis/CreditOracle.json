@@ -3,17 +3,39 @@
     "inputs": [
       {
         "internalType": "address",
-        "name": "_poolManager",
-        "type": "address"
-      },
-      {
-        "internalType": "address",
-        "name": "_creditOracle",
+        "name": "_attester",
         "type": "address"
       }
     ],
     "stateMutability": "nonpayable",
     "type": "constructor"
+  },
+  {
+    "inputs": [],
+    "name": "ECDSAInvalidSignature",
+    "type": "error"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "length",
+        "type": "uint256"
+      }
+    ],
+    "name": "ECDSAInvalidSignatureLength",
+    "type": "error"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "bytes32",
+        "name": "s",
+        "type": "bytes32"
+      }
+    ],
+    "name": "ECDSAInvalidSignatureS",
+    "type": "error"
   },
   {
     "inputs": [
@@ -43,11 +65,17 @@
       {
         "indexed": true,
         "internalType": "address",
-        "name": "newOracle",
+        "name": "oldAttester",
+        "type": "address"
+      },
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "newAttester",
         "type": "address"
       }
     ],
-    "name": "OracleUpdated",
+    "name": "AttesterChanged",
     "type": "event"
   },
   {
@@ -81,51 +109,25 @@
       {
         "indexed": false,
         "internalType": "uint256",
-        "name": "newScore",
+        "name": "collateral",
         "type": "uint256"
       },
       {
         "indexed": false,
-        "internalType": "string",
-        "name": "reason",
-        "type": "string"
+        "internalType": "uint256",
+        "name": "debt",
+        "type": "uint256"
       }
     ],
-    "name": "ScoreUpdated",
+    "name": "ProfileUpdated",
     "type": "event"
   },
   {
     "inputs": [],
-    "name": "MAX_SCORE",
+    "name": "attester",
     "outputs": [
       {
-        "internalType": "uint256",
-        "name": "",
-        "type": "uint256"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [],
-    "name": "MIN_SCORE",
-    "outputs": [
-      {
-        "internalType": "uint256",
-        "name": "",
-        "type": "uint256"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [],
-    "name": "creditOracle",
-    "outputs": [
-      {
-        "internalType": "contract CreditOracle",
+        "internalType": "address",
         "name": "",
         "type": "address"
       }
@@ -141,31 +143,12 @@
         "type": "address"
       }
     ],
-    "name": "getCreditLimit",
+    "name": "getExternalNetValue",
     "outputs": [
       {
-        "internalType": "uint256",
+        "internalType": "int256",
         "name": "",
-        "type": "uint256"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "user",
-        "type": "address"
-      }
-    ],
-    "name": "getScore",
-    "outputs": [
-      {
-        "internalType": "uint256",
-        "name": "",
-        "type": "uint256"
+        "type": "int256"
       }
     ],
     "stateMutability": "view",
@@ -185,34 +168,37 @@
     "type": "function"
   },
   {
-    "inputs": [],
-    "name": "poolManager",
-    "outputs": [
+    "inputs": [
       {
-        "internalType": "contract PoolManager",
+        "internalType": "address",
         "name": "",
         "type": "address"
       }
     ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
+    "name": "profiles",
+    "outputs": [
       {
-        "internalType": "address",
-        "name": "user",
-        "type": "address"
+        "internalType": "uint256",
+        "name": "totalCollateralUsd",
+        "type": "uint256"
       },
       {
         "internalType": "uint256",
-        "name": "amount",
+        "name": "totalDebtUsd",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "lastUpdate",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "nonce",
         "type": "uint256"
       }
     ],
-    "name": "recordRepayment",
-    "outputs": [],
-    "stateMutability": "nonpayable",
+    "stateMutability": "view",
     "type": "function"
   },
   {
@@ -226,51 +212,13 @@
     "inputs": [
       {
         "internalType": "address",
-        "name": "",
+        "name": "_attester",
         "type": "address"
       }
     ],
-    "name": "scores",
-    "outputs": [
-      {
-        "internalType": "uint256",
-        "name": "",
-        "type": "uint256"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "_creditOracle",
-        "type": "address"
-      }
-    ],
-    "name": "setCreditOracle",
+    "name": "setAttester",
     "outputs": [],
     "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "",
-        "type": "address"
-      }
-    ],
-    "name": "totalRepaidMap",
-    "outputs": [
-      {
-        "internalType": "uint256",
-        "name": "",
-        "type": "uint256"
-      }
-    ],
-    "stateMutability": "view",
     "type": "function"
   },
   {
@@ -294,17 +242,27 @@
         "type": "address"
       },
       {
-        "internalType": "int256",
-        "name": "delta",
-        "type": "int256"
+        "internalType": "uint256",
+        "name": "collateral",
+        "type": "uint256"
       },
       {
-        "internalType": "string",
-        "name": "reason",
-        "type": "string"
+        "internalType": "uint256",
+        "name": "debt",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "timestamp",
+        "type": "uint256"
+      },
+      {
+        "internalType": "bytes",
+        "name": "signature",
+        "type": "bytes"
       }
     ],
-    "name": "updateScore",
+    "name": "updateProfile",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"

@@ -548,6 +548,48 @@ export function usePolaris() {
         }
     };
 
+    const updateCreditProfile = async (attestation: {
+        collateral: string;
+        debt: string;
+        timestamp: number;
+        signature: string;
+    }) => {
+        setLoading(true);
+        try {
+            const { config, id } = getMasterConfig();
+            const oracle = await getContract((config as any).CREDIT_ORACLE, ABIS.CreditOracle, id);
+
+            console.log("[POLARIS] Updating Credit Profile on Hub...");
+            const tx = await oracle.updateProfile(
+                wallet?.address,
+                attestation.collateral,
+                attestation.debt,
+                attestation.timestamp,
+                attestation.signature
+            );
+            const receipt = await tx.wait();
+            return receipt;
+        } catch (error) {
+            console.error("Profile update failed:", error);
+            throw error;
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const getExternalNetValue = async () => {
+        try {
+            if (!wallet?.address) return "0";
+            const { config, id } = getMasterConfig();
+            const oracle = await getContract((config as any).CREDIT_ORACLE, ABIS.CreditOracle, id, false);
+            const value = await oracle.getExternalNetValue(wallet.address);
+            return formatUnits(value, 18);
+        } catch (error) {
+            console.error("Fetch external net value failed:", error);
+            return "0";
+        }
+    };
+
     return {
         loading,
         txHash,
@@ -572,6 +614,8 @@ export function usePolaris() {
         authenticated,
         address: wallet?.address,
         chainId: wallet?.chainId,
-        getAPY
+        getAPY,
+        updateCreditProfile,
+        getExternalNetValue
     };
 }
