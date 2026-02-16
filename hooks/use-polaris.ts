@@ -21,7 +21,11 @@ export function usePolaris() {
     };
 
     const getMasterConfig = () => {
-        const isLocal = wallet?.chainId?.toString().includes('1337');
+        const chainIdStr = wallet?.chainId?.toString() || '';
+        const isLocal = chainIdStr.includes('1337') || chainIdStr === '0x539' || chainIdStr === '539';
+
+        console.log(`[POLARIS_DEBUG] Chain: ${chainIdStr}, isLocal: ${isLocal}`);
+
         return isLocal
             ? { config: CONTRACTS.SPOKES.GANACHE, id: NETWORKS.GANACHE.id }
             : { config: CONTRACTS.MASTER, id: NETWORKS.USC.id };
@@ -581,10 +585,15 @@ export function usePolaris() {
         try {
             if (!wallet?.address) return "0";
             const { config, id } = getMasterConfig();
+            console.log(`[POLARIS] getExternalNetValue: ConfigID=${id}, Oracle=${(config as any).CREDIT_ORACLE}, User=${wallet.address}`);
             const oracle = await getContract((config as any).CREDIT_ORACLE, ABIS.CreditOracle, id, false);
             const value = await oracle.getExternalNetValue(wallet.address);
             return formatUnits(value, 18);
-        } catch (error) {
+        } catch (error: any) {
+            if (error.code === 'BAD_DATA') {
+                console.warn("[POLARIS] getExternalNetValue: BAD_DATA returned. Contract empty or wrong network? Defaulting to 0.");
+                return "0";
+            }
             console.error("Fetch external net value failed:", error);
             return "0";
         }

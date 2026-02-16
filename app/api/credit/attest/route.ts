@@ -1,13 +1,8 @@
 import { NextResponse } from "next/server";
 import { ethers } from "ethers";
-import { ApolloClient, InMemoryCache, gql } from "@apollo/client";
-// Initialize Apollo Client for Morpho Blue
-const morphoClient = new ApolloClient({
-    uri: "https://blue-api.morpho.org/graphql",
-    cache: new InMemoryCache(),
-} as any);
+const MORPHO_GRAPHQL_URL = "https://blue-api.morpho.org/graphql";
 
-const GET_USER_MORPHO_DATA = gql`
+const GET_USER_MORPHO_QUERY = `
   query GetUserMorpho($address: String!) {
     userByAddress(address: $address) {
       address
@@ -37,11 +32,16 @@ export async function POST(req: Request) {
         let morphoDebt = 0;
 
         try {
-            const morphoRes = await morphoClient.query({
-                query: GET_USER_MORPHO_DATA,
-                variables: { address: walletAddress },
+            const morphoRes = await fetch(MORPHO_GRAPHQL_URL, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    query: GET_USER_MORPHO_QUERY,
+                    variables: { address: walletAddress },
+                }),
             });
-            const data = (morphoRes as any).data.userByAddress;
+            const result = await morphoRes.json();
+            const data = result.data?.userByAddress;
             if (data) {
                 morphoCollateral = parseFloat(data.sumSupplyAssetsUsd) || 0;
                 morphoDebt = parseFloat(data.sumBorrowAssetsUsd) || 0;
