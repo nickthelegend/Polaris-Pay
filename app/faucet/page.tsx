@@ -142,7 +142,9 @@ export default function FaucetPage() {
                             </SelectTrigger>
                             <SelectContent>
                                 <SelectItem value="SEPOLIA">Sepolia</SelectItem>
-                                <SelectItem value="HEDERA">Hedera Testnet</SelectItem>
+                                <SelectItem value="FUJI">Avalanche Fuji</SelectItem>
+                                <SelectItem value="BASE_SEPOLIA">Base Sepolia</SelectItem>
+                                <SelectItem value="CRONOS">Cronos Testnet</SelectItem>
                                 <SelectItem value="GANACHE">Localnet (Ganache)</SelectItem>
                             </SelectContent>
                         </Select>

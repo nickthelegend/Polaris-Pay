@@ -13,10 +13,10 @@ export function usePolaris() {
 
     const getSpokeConfig = (networkId: number) => {
         if (networkId === NETWORKS.SEPOLIA.id) return CONTRACTS.SPOKES.SEPOLIA;
-        // if (networkId === NETWORKS.BASE_SEPOLIA.id) return CONTRACTS.SPOKES.BASE_SEPOLIA;
+        if (networkId === NETWORKS.FUJI.id) return CONTRACTS.SPOKES.FUJI;
+        if (networkId === NETWORKS.BASE_SEPOLIA.id) return CONTRACTS.SPOKES.BASE_SEPOLIA;
+        if (networkId === NETWORKS.CRONOS.id) return CONTRACTS.SPOKES.CRONOS;
         if (networkId === NETWORKS.GANACHE.id) return CONTRACTS.SPOKES.GANACHE;
-        // Check if we are on Hedera (296)
-        if (networkId === NETWORKS.HEDERA?.id) return CONTRACTS.SPOKES.HEDERA;
         return CONTRACTS.SOURCE; // Fallback
     };
 
@@ -81,7 +81,11 @@ export function usePolaris() {
             if (wallet?.address) {
                 const balance = await token.balanceOf(wallet.address);
                 if (balance < amountWei) {
-                    const isTestnet = networkId === NETWORKS.SEPOLIA.id || networkId === NETWORKS.GANACHE.id;
+                    const isTestnet = networkId === NETWORKS.SEPOLIA.id ||
+                        networkId === NETWORKS.FUJI.id ||
+                        networkId === NETWORKS.BASE_SEPOLIA.id ||
+                        networkId === NETWORKS.CRONOS.id ||
+                        networkId === NETWORKS.GANACHE.id;
                     if (isTestnet) {
                         console.log(`[POLARIS] Insufficient balance(${formatUnits(balance, decimals)}).Auto - minting...`);
                         try {

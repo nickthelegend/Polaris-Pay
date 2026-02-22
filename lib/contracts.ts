@@ -16,9 +16,9 @@ export const CONTRACTS = {
         POOL_MANAGER: "0x9f40bfe80fADa11569c68d2DFb9f3250841C572E",
         LOAN_ENGINE: "0x3b3af0440510Cd99336AF525200Fd1d3F311DA24",
         SCORE_MANAGER: "0x4f8295bf1bE96b548aa0384673415217c4afed99",
-        PROTOCOL_FUNDS: "0x45fDec5099580F2FeBa9E9e27FCd19BfEDDF4fA9", // Fallback to verified local
-        MERCHANT_ROUTER: "0xCC5B2C15D50dBE201279533a1E3fDd643F8772bb", // Fallback
-        CREDIT_ORACLE: "0x9260fD34Be71Fa6C8DFd7a989a0b64545FF5C0E9", // Fallback to Ganache (Code exists)
+        PROTOCOL_FUNDS: "0x45fDec5099580F2FeBa9E9e27FCd19BfEDDF4fA9",
+        MERCHANT_ROUTER: "0xCC5B2C15D50dBE201279533a1E3fDd643F8772bb",
+        CREDIT_ORACLE: "0x9260fD34Be71Fa6C8DFd7a989a0b64545FF5C0E9",
         USDC: "0x58e67DeeeCDE20f10ed90b5191f08f39e81b6658",
         ORACLE: "0x0000000000000000000000000000000000000FD2"
     },
@@ -34,11 +34,38 @@ export const CONTRACTS = {
             BNB: "0xd376252519348D8d219C250E374CE81A1B528BE5",
             id: 11155111
         },
-        HEDERA: {
-            LIQUIDITY_VAULT: "0x214730188780a3A64fD24ede85f2724535772Ff0",
-            USDC: "0x84373D817230268b2dE1d7727ca3c930293CCE51",
-            USDT: "0xB159E0c8093081712c92e274DbFEa5A97A80cA30",
-            id: 296
+        FUJI: {
+            LIQUIDITY_VAULT: "0xD221D9E4F6E6709a3cf38cEC57662bbC7F60f3Df",
+            USDC: "0x7F7FfeC9a7a6DC8B383606BE86DE5bE9e99a1302",
+            USDT: "0xDE7bB3d5d37Cc4A4eCdd0Fd10C9AF92B545C89c2",
+            AVAX: "0x21B15447514649C7cb934cA01c2528ff52Daa84b",
+            WBTC: "0xbCFCF4D1B880Ea38b71E45394FaCC5b71678C44A",
+            WETH: "0x0a60F63B187F9BBa95F213fC7eca447239E10603",
+            LINK: "0x4f8295bf1bE96b548aa0384673415217c4afed99",
+            BNB: "0xE6f01d32851A30Fb8C8A02142d5d1E333574312a",
+            id: 43113
+        },
+        BASE_SEPOLIA: {
+            LIQUIDITY_VAULT: "0x546Bbb8B960EaF059B0771cC4808Da13829e1c42",
+            USDC: "0xD221D9E4F6E6709a3cf38cEC57662bbC7F60f3Df",
+            USDT: "0xf2411f2C27a619Ab40001A956fEd625DBFa458AF",
+            AVAX: "0x369B65aaD1c39159a0f860012f59D0F4c3484812",
+            WBTC: "0x5A1D3939C5b3a43B36Dc42C816bc5c0F02c1C261",
+            WETH: "0x8C213a3Db9187966Ebf8DfD0488A225044265AeF",
+            LINK: "0x9f40bfe80fADa11569c68d2DFb9f3250841C572E",
+            BNB: "0xBa403C90a5FE4BDfD2a4705bA7C2fA30F47Aa2e1",
+            id: 84532
+        },
+        CRONOS: {
+            LIQUIDITY_VAULT: "0x2D048c09ff1d00F2c948Fe359f6437b2aCc3C00B",
+            USDC: "0xD81FB2ea7fA64E3CC934eC7245566F4178A949E9",
+            USDT: "0x97658341fc30EEBe61a62d65FA62743A5FE286fC",
+            AVAX: "0xb0764B66447E3BFFB331660765Fe0101b2337963",
+            WBTC: "0x466Bd36643148093e10e9615C36EeB97c5c99c3C",
+            WETH: "0x2eaBA0B5582ca017EbF7Eb6305B7F72C807CFDa8",
+            LINK: "0x78300a1F2EA8FA8E0Cb202610E639A54A829237b",
+            BNB: "0x136a2956e38ae617F4be249b383191A55f274431",
+            id: 338
         },
         GANACHE: {
             LIQUIDITY_VAULT: "0xc4a748342b13F900c3691125A3D8019d36803c07",
@@ -52,7 +79,6 @@ export const CONTRACTS = {
             id: 1337
         }
     },
-    // Legacy support
     SOURCE: {
         LIQUIDITY_VAULT: "0x8C213a3Db9187966Ebf8DfD0488A225044265AeF",
         USDC: "0xbCFCF4D1B880Ea38b71E45394FaCC5b71678C44A",
@@ -90,12 +116,33 @@ export const NETWORKS = {
         explorer: "https://sepolia.etherscan.io",
         icon: "ethereum"
     },
-    HEDERA: {
-        id: 296,
-        name: "Hedera Testnet",
-        rpc: "https://testnet.hashio.io/api",
-        explorer: "https://hashscan.io/testnet",
-        icon: "hedera"
+    FUJI: {
+        id: 43113,
+        name: "Avalanche Fuji",
+        rpc: "https://api.avax-test.network/ext/bc/C/rpc",
+        explorer: "https://testnet.snowtrace.io",
+        icon: "avalanche"
+    },
+    BASE_SEPOLIA: {
+        id: 84532,
+        name: "Base Sepolia",
+        rpc: "https://base-sepolia.api.onfinality.io/public",
+        explorer: "https://sepolia.basescan.org",
+        icon: "base"
+    },
+    CRONOS: {
+        id: 338,
+        name: "Cronos Testnet",
+        rpc: "https://evm-t3.cronos.org",
+        explorer: "https://explorer.cronos.org/testnet",
+        icon: "ethereum"
+    },
+    MONAD: {
+        id: 20143,
+        name: "Monad Testnet",
+        rpc: "https://testnet-rpc.monad.xyz/",
+        explorer: "https://testnet.monadexplorer.com",
+        icon: "ethereum"
     },
     GANACHE: {
         id: 1337,
