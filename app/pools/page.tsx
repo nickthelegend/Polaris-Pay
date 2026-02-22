@@ -262,7 +262,7 @@ export default function PoolsPage() {
 
             // 3. Asset Row Logic (Global vs Local)
             const newStats: Record<string, any> = { ...poolStats };
-            const spokeChains = ["SEPOLIA", "HEDERA"]; // Support all known spokes
+            const spokeChains = ["SEPOLIA", "FUJI", "BASE_SEPOLIA", "CRONOS"]; // Support all known spokes
 
             for (const symbol of Object.keys(TOKEN_METADATA)) {
                 let totalRes = 0;
@@ -272,10 +272,14 @@ export default function PoolsPage() {
                     const spoke = (CONTRACTS.SPOKES as any)[spokeKey];
                     const tokenAddr = spoke[symbol];
                     if (tokenAddr) {
-                        const res = await getPoolLiquidity(tokenAddr);
-                        const lp = await getLPBalance(tokenAddr);
-                        totalRes += parseFloat(res);
-                        totalLP += parseFloat(lp);
+                        try {
+                            const res = await getPoolLiquidity(tokenAddr);
+                            const lp = await getLPBalance(tokenAddr);
+                            totalRes += parseFloat(res);
+                            totalLP += parseFloat(lp);
+                        } catch (e) {
+                            // Skip if contract or RPC error for this specific token on this chain
+                        }
                     }
                 }
 
@@ -793,20 +797,23 @@ export default function PoolsPage() {
                             </div>
 
                             <div className="overflow-y-auto divide-y divide-white/5">
-                                {pools.map((pool: any) => {
-                                    const symbol = pool.name.replace("_VAULT", "");
-                                    const meta = TOKEN_METADATA[symbol] || { ledgerId: "generic", color: "white" };
-                                    const stats = poolStats[symbol] || { tvl: "0", lpBalance: "0", apr: pool.apr || "12.0" };
+                                {Object.keys(TOKEN_METADATA).map((symbol) => {
+                                    const meta = TOKEN_METADATA[symbol];
+                                    const stats = poolStats[symbol] || { tvl: "0", lpBalance: "0", apr: "12.0", userBalance: "0" };
+
+                                    // Identify current chain view
+                                    const poolName = selectedView === "USC" ? `${symbol}_HUB` : `${symbol}_${selectedView.toUpperCase()}`;
+                                    const poolId = `${symbol}_${selectedView}`;
 
                                     return (
-                                        <div key={pool.id} className="flex flex-col md:grid md:grid-cols-12 px-4 sm:px-6 py-5 hover:bg-white/[0.04] transition-all items-start md:items-center gap-4 md:gap-0">
+                                        <div key={poolId} className="flex flex-col md:grid md:grid-cols-12 px-4 sm:px-6 py-5 hover:bg-white/[0.04] transition-all items-start md:items-center gap-4 md:gap-0">
                                             <div className="w-full md:col-span-3 flex items-center gap-4">
                                                 <div className={`size-10 bg-${meta.color}-500/10 rounded-sm flex items-center justify-center border border-${meta.color}-500/20 shrink-0`}>
                                                     <CryptoIcon ledgerId={meta.ledgerId} ticker={symbol} network="ethereum" size="20px" />
                                                 </div>
                                                 <div className="flex flex-col">
                                                     <div className="flex items-center gap-2">
-                                                        <span className="text-white text-sm font-bold uppercase">{pool.name}</span>
+                                                        <span className="text-white text-sm font-bold uppercase">{poolName}</span>
                                                         <img src={getChainIcon(NETWORKS[selectedView as keyof typeof NETWORKS].icon)} className="size-3 opacity-50" alt="chain" />
                                                     </div>
                                                     <span className="text-[10px] text-white/30 uppercase">{NETWORKS[selectedView as keyof typeof NETWORKS].name}</span>
