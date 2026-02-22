@@ -21,8 +21,18 @@ export default function FaucetPage() {
     const [errorMsg, setErrorMsg] = useState<string>("")
 
     // Balances
-    const [balances, setBalances] = useState({ usdc: "0", usdt: "0" })
+    const [balances, setBalances] = useState<Record<string, string>>({})
     const [loadingBalances, setLoadingBalances] = useState(false)
+
+    const TOKEN_LIST = {
+        USDC: "Mock USDC",
+        USDT: "Mock USDT",
+        AVAX: "Mock AVAX",
+        WBTC: "Mock WBTC",
+        WETH: "Mock WETH",
+        LINK: "Mock LINK",
+        BNB: "Mock BNB"
+    };
 
     const wallet = wallets[0]
 
@@ -36,9 +46,18 @@ export default function FaucetPage() {
             const spokeConfig = CONTRACTS.SPOKES[network];
 
             if (netId && spokeConfig) {
-                const usdc = await getTokenBalance(spokeConfig.USDC, netId);
-                const usdt = await getTokenBalance(spokeConfig.USDT, netId);
-                setBalances({ usdc: parseFloat(usdc).toFixed(2), usdt: parseFloat(usdt).toFixed(2) });
+                const balancesObj: any = {};
+                for (const symbol of Object.keys(TOKEN_LIST)) {
+                    if (spokeConfig[symbol]) {
+                        try {
+                            const b = await getTokenBalance(spokeConfig[symbol], netId);
+                            balancesObj[symbol.toLowerCase()] = parseFloat(b).toFixed(2);
+                        } catch (e) {
+                            balancesObj[symbol.toLowerCase()] = "0.00";
+                        }
+                    }
+                }
+                setBalances(balancesObj);
             }
         } catch (e) {
             console.error("Failed to fetch balances:", e);
@@ -56,36 +75,31 @@ export default function FaucetPage() {
         setStatus("loading")
         setErrorMsg("")
         setTxHash("")
-        const actualAbi = (ABIS.MockERC20 as any).abi || ABIS.MockERC20;
 
         try {
-            // Switch chain if needed
-            // @ts-ignore
-            const targetChainId = NETWORKS[network]?.id
-            if (targetChainId) {
-                await wallet.switchChain(targetChainId)
+            // Use the Backend API for a gasless experience (using the faucet wallet)
+            const response = await fetch("/api/faucet", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    address: wallet.address,
+                    token: token,
+                    network: network,
+                    amount: amount
+                })
+            });
+
+            const data = await response.json();
+
+            if (!data.success) {
+                throw new Error(data.error || "Failed to mint from backend");
             }
 
-            const provider = new ethers.BrowserProvider(await wallet.getEthereumProvider())
-            const signer = await provider.getSigner()
+            setTxHash(data.txHash);
+            setStatus("success");
 
-            // @ts-ignore
-            const networkConfig = CONTRACTS.SPOKES[network]
-            if (!networkConfig) throw new Error("Invalid network config")
-
-            const tokenAddress = networkConfig[token]
-            if (!tokenAddress) throw new Error("Invalid token address")
-
-            const contract = new ethers.Contract(tokenAddress, actualAbi, signer)
-
-            // Mint
-            const parsedAmount = ethers.parseUnits(amount, 6) // USDC/USDT use 6 decimals
-            const tx = await contract.mint(wallet.address, parsedAmount)
-            setTxHash(tx.hash)
-            await tx.wait()
-
-            setStatus("success")
-            fetchBalances(); // Refresh balances after mint
+            // Refresh balances after a short delay to allow for indexing
+            setTimeout(fetchBalances, 3000);
         } catch (e: any) {
             console.error(e)
             setStatus("error")
@@ -109,16 +123,14 @@ export default function FaucetPage() {
 
                     {/* Balances Card */}
                     {authenticated && (
-                        <div className="bg-muted/50 p-4 rounded-lg space-y-2">
-                            <p className="text-xs font-semibold uppercase text-muted-foreground">Your {network} Balances</p>
-                            <div className="flex justify-between items-center text-sm">
-                                <span>USDC</span>
-                                <span className="font-mono font-medium">{balances.usdc}</span>
-                            </div>
-                            <div className="flex justify-between items-center text-sm">
-                                <span>USDT</span>
-                                <span className="font-mono font-medium">{balances.usdt}</span>
-                            </div>
+                        <div className="bg-muted/50 p-4 rounded-lg grid grid-cols-2 gap-2">
+                            <p className="col-span-2 text-xs font-semibold uppercase text-muted-foreground border-b border-white/5 pb-2 mb-1">Your {network} Balances</p>
+                            {Object.entries(balances).map(([sym, bal]) => (
+                                <div key={sym} className="flex justify-between items-center text-xs">
+                                    <span className="opacity-50 uppercase">{sym}</span>
+                                    <span className="font-mono font-medium">{bal}</span>
+                                </div>
+                            ))}
                         </div>
                     )}
 
@@ -143,8 +155,9 @@ export default function FaucetPage() {
                                 <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
-                                <SelectItem value="USDC">Mock USDC</SelectItem>
-                                <SelectItem value="USDT">Mock USDT</SelectItem>
+                                {Object.keys(TOKEN_LIST).map(t => (
+                                    <SelectItem key={t} value={t}>{TOKEN_LIST[t as keyof typeof TOKEN_LIST]}</SelectItem>
+                                ))}
                             </SelectContent>
                         </Select>
                     </div>

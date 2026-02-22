@@ -87,20 +87,22 @@ export default function PoolsPage() {
         mintTokens
     } = usePolaris();
 
-    // Liquidity & Balance State
-    const [usdcLiquidity, setUsdcLiquidity] = useState("0");
-    const [usdtLiquidity, setUsdtLiquidity] = useState("0");
-    const [usdcPhysicalLiq, setUsdcPhysicalLiq] = useState("0");
-    const [usdtPhysicalLiq, setUsdtPhysicalLiq] = useState("0");
-    const [ctcLiquidity, setCtcLiquidity] = useState("0");
-    const [usdcUserBalance, setUsdcUserBalance] = useState("0");
-    const [usdtUserBalance, setUsdtUserBalance] = useState("0");
-    const [usdcLPBalance, setUsdcLPBalance] = useState("0");
-    const [usdtLPBalance, setUsdtLPBalance] = useState("0");
+    // Liquidity & Balance State (Dynamic)
+    const [poolStats, setPoolStats] = useState<Record<string, any>>({});
     const [totalEquity, setTotalEquity] = useState("0");
     const [totalTVL, setTotalTVL] = useState("0");
-    const [ctcLPBalance, setCtcLPBalance] = useState("0");
     const [apy, setApy] = useState("8.00");
+
+    // Token Metadata for Icons
+    const TOKEN_METADATA: Record<string, { ledgerId: string, color: string }> = {
+        USDC: { ledgerId: "ethereum/erc20/usd_coin__erc20_", color: "blue" },
+        USDT: { ledgerId: "ethereum/erc20/usd_tether__erc20_", color: "green" },
+        AVAX: { ledgerId: "avalanche", color: "red" },
+        WBTC: { ledgerId: "bitcoin", color: "orange" },
+        WETH: { ledgerId: "ethereum", color: "purple" },
+        LINK: { ledgerId: "chainlink", color: "blue" },
+        BNB: { ledgerId: "binance_smart_chain", color: "yellow" }
+    };
 
     // Default to USC View, but allows selecting which SPOKE to view
     const [selectedView, setSelectedView] = useState<keyof typeof NETWORKS>("USC");
@@ -161,20 +163,20 @@ export default function PoolsPage() {
     useEffect(() => {
         if (pools.length > 0) {
             console.log("[POLARIS] Initializing state from Supabase cache...");
-            const up = pools.find((p: any) => p.name === 'USDC_VAULT');
-            const ut = pools.find((p: any) => p.name === 'USDT_VAULT');
+            const newStats: Record<string, any> = { ...poolStats };
 
-            if (up) {
-                setUsdcPhysicalLiq(up.physical_balance?.toString() || "0");
-                setUsdcLiquidity(up.tvl?.toString() || "0");
-                // Use DB LP balance if available, otherwise fallback
-                setUsdcLPBalance(up.lp_balance?.toString() || "0");
-            }
-            if (ut) {
-                setUsdtPhysicalLiq(ut.physical_balance?.toString() || "0");
-                setUsdtLiquidity(ut.tvl?.toString() || "0");
-                setUsdtLPBalance(ut.lp_balance?.toString() || "0");
-            }
+            pools.forEach((p: any) => {
+                const symbol = p.name.replace("_VAULT", "");
+                newStats[symbol] = {
+                    ...newStats[symbol],
+                    physical: p.physical_balance?.toString() || "0",
+                    tvl: p.tvl?.toString() || "0",
+                    lpBalance: p.lp_balance?.toString() || "0",
+                    apr: p.apr?.toString() || "12.0"
+                };
+            });
+
+            setPoolStats(newStats);
 
             // Sync Total TVL from DB
             const tvlSum = pools.reduce((acc: number, p: any) => acc + (Number(p.tvl) || 0), 0);
@@ -187,16 +189,21 @@ export default function PoolsPage() {
             setTotalEquity(equitySum.toString());
 
             // Update individual LP balances from DB if specific records exist
-            const usdcDepTotal = dbDeposits
-                .filter((d: any) => d.asset === "USDC")
-                .reduce((acc: number, d: any) => acc + (Number(d.amount) || 0), 0);
-            const usdtDepTotal = dbDeposits
-                .filter((d: any) => d.asset === "USDT")
-                .reduce((acc: number, d: any) => acc + (Number(d.amount) || 0), 0);
-
             if (selectedView === "USC") {
-                setUsdcLPBalance(usdcDepTotal.toString());
-                setUsdtLPBalance(usdtDepTotal.toString());
+                const newStats = { ...poolStats };
+                Object.keys(TOKEN_METADATA).forEach(symbol => {
+                    const depTotal = dbDeposits
+                        .filter((d: any) => d.asset === symbol)
+                        .reduce((acc: number, d: any) => acc + (Number(d.amount) || 0), 0);
+
+                    if (depTotal > 0) {
+                        newStats[symbol] = {
+                            ...newStats[symbol],
+                            lpBalance: depTotal.toString()
+                        };
+                    }
+                });
+                setPoolStats(newStats);
             }
         }
     }, [poolsData, txData, selectedView]);
@@ -254,47 +261,48 @@ export default function PoolsPage() {
             setActiveLoans(loans);
 
             // 3. Asset Row Logic (Global vs Local)
-            // Fetch Global Hub Totals for the Asset Display
-            const sepConfig = CONTRACTS.SPOKES.SEPOLIA;
-            const hedConfig = CONTRACTS.SPOKES.HEDERA;
+            const newStats: Record<string, any> = { ...poolStats };
+            const spokeChains = ["SEPOLIA", "HEDERA"]; // Support all known spokes
 
-            // FETCH GLOBAL HUB RESERVES (Summing all known pools on Hub)
-            const globalUsdcRes = await getPoolLiquidity(sepConfig.USDC); // On Hub, Liquidity is per source token. Summing them:
-            const hedUsdcRes = await getPoolLiquidity(hedConfig.USDC);
-            const globalUsdtRes = await getPoolLiquidity(sepConfig.USDT);
-            const hedUsdtRes = await getPoolLiquidity(hedConfig.USDT);
+            for (const symbol of Object.keys(TOKEN_METADATA)) {
+                let totalRes = 0;
+                let totalLP = 0;
 
-            // AGGREGATE!
-            const totalUsdcRes = (parseFloat(globalUsdcRes) + parseFloat(hedUsdcRes)).toString();
-            const totalUsdtRes = (parseFloat(globalUsdtRes) + parseFloat(hedUsdtRes)).toString();
+                for (const spokeKey of spokeChains) {
+                    const spoke = (CONTRACTS.SPOKES as any)[spokeKey];
+                    const tokenAddr = spoke[symbol];
+                    if (tokenAddr) {
+                        const res = await getPoolLiquidity(tokenAddr);
+                        const lp = await getLPBalance(tokenAddr);
+                        totalRes += parseFloat(res);
+                        totalLP += parseFloat(lp);
+                    }
+                }
 
-            setUsdcPhysicalLiq(totalUsdcRes);
-            setUsdtPhysicalLiq(totalUsdtRes);
+                newStats[symbol] = {
+                    ...newStats[symbol],
+                    tvl: totalRes.toString(),
+                    physical: totalRes.toString(), // Simplified for demo
+                    lpBalance: totalLP.toString()
+                };
 
-            // FETCH YOUR GLOBAL AGGREGATE COLLATERAL (Per Token)
-            const lpUsdcSep = await getLPBalance(sepConfig.USDC);
-            const lpUsdcHed = await getLPBalance(hedConfig.USDC);
-            const lpUsdtSep = await getLPBalance(sepConfig.USDT);
-            const lpUsdtHed = await getLPBalance(hedConfig.USDT);
+                // 4. Local User Balances (Based on the dropdown selection for the Deposit button)
+                const currentNetId = NETWORKS[selectedView].id;
+                const currentSpoke = (CONTRACTS.SPOKES as any)[selectedView];
+                if (selectedView !== "USC" && currentSpoke && currentSpoke[symbol]) {
+                    const ub = await getTokenBalance(currentSpoke[symbol], currentNetId);
+                    newStats[symbol].userBalance = ub;
+                }
 
-            setUsdcLPBalance((parseFloat(lpUsdcSep) + parseFloat(lpUsdcHed)).toString());
-            setUsdtLPBalance((parseFloat(lpUsdtSep) + parseFloat(lpUsdtHed)).toString());
-
-            // 4. Local User Balances (Based on the dropdown selection for the Deposit button)
-            const currentNetId = NETWORKS[selectedView].id;
-            const currentSpoke = (CONTRACTS.SPOKES as any)[selectedView];
-
-            if (selectedView !== "USC") {
-                const ubUsdc = await getTokenBalance(currentSpoke.USDC, currentNetId);
-                const ubUsdt = await getTokenBalance(currentSpoke.USDT, currentNetId);
-                setUsdcUserBalance(ubUsdc);
-                setUsdtUserBalance(ubUsdt);
+                // Update Cache
+                savePoolCache(`${symbol}_VAULT`, {
+                    tvl: totalRes.toString(),
+                    lp_balance: totalLP,
+                    physical_balance: totalRes.toString()
+                });
             }
 
-            // Update Cache for first-paint on next visit
-            savePoolCache("USDC_VAULT", { tvl: totalUsdcRes, lp_balance: (parseFloat(lpUsdcSep) + parseFloat(lpUsdcHed)), physical_balance: totalUsdcRes });
-            savePoolCache("USDT_VAULT", { tvl: totalUsdtRes, lp_balance: (parseFloat(lpUsdtSep) + parseFloat(lpUsdtHed)), physical_balance: totalUsdtRes });
-
+            setPoolStats(newStats);
             console.log(`[POLARIS] Refresh Complete. Aggregated TVL: $${aggregatedTVL}`);
         } catch (err) {
             console.error("Refresh failed:", err);
@@ -700,7 +708,7 @@ export default function PoolsPage() {
                             </button>
 
                             {/* Sync Warning */}
-                            {(Number(usdcLPBalance) > 0 || Number(usdtLPBalance) > 0) && Number(creditLimit) === 0 && (
+                            {Object.values(poolStats).some(s => parseFloat(s.lpBalance) > 0) && Number(creditLimit) === 0 && (
                                 <div className="mt-2 bg-red-500/10 border border-red-500/20 p-2 rounded-sm flex items-center gap-2 animate-pulse cursor-pointer" onClick={() => setIsSyncOpen(true)}>
                                     <RefreshCw className="w-3 h-3 text-red-400" />
                                     <span className="text-[9px] font-bold text-red-400 uppercase tracking-widest">
@@ -785,107 +793,63 @@ export default function PoolsPage() {
                             </div>
 
                             <div className="overflow-y-auto divide-y divide-white/5">
-                                {/* Pool Row: USDC */}
-                                <div className="flex flex-col md:grid md:grid-cols-12 px-4 sm:px-6 py-5 hover:bg-white/[0.04] transition-all items-start md:items-center gap-4 md:gap-0">
-                                    <div className="w-full md:col-span-3 flex items-center gap-4">
-                                        <div className="size-10 bg-blue-500/10 rounded-sm flex items-center justify-center border border-blue-500/20 shrink-0">
-                                            <CryptoIcon ledgerId="ethereum/erc20/usd_coin__erc20_" ticker="USDC" network="ethereum" size="20px" />
-                                        </div>
-                                        <div className="flex flex-col">
-                                            <div className="flex items-center gap-2">
-                                                <span className="text-white text-sm font-bold uppercase">USDC_VAULT</span>
-                                                <img src={getChainIcon(NETWORKS[selectedView as keyof typeof NETWORKS].icon)} className="size-3 opacity-50" alt="chain" />
+                                {pools.map((pool: any) => {
+                                    const symbol = pool.name.replace("_VAULT", "");
+                                    const meta = TOKEN_METADATA[symbol] || { ledgerId: "generic", color: "white" };
+                                    const stats = poolStats[symbol] || { tvl: "0", lpBalance: "0", apr: pool.apr || "12.0" };
+
+                                    return (
+                                        <div key={pool.id} className="flex flex-col md:grid md:grid-cols-12 px-4 sm:px-6 py-5 hover:bg-white/[0.04] transition-all items-start md:items-center gap-4 md:gap-0">
+                                            <div className="w-full md:col-span-3 flex items-center gap-4">
+                                                <div className={`size-10 bg-${meta.color}-500/10 rounded-sm flex items-center justify-center border border-${meta.color}-500/20 shrink-0`}>
+                                                    <CryptoIcon ledgerId={meta.ledgerId} ticker={symbol} network="ethereum" size="20px" />
+                                                </div>
+                                                <div className="flex flex-col">
+                                                    <div className="flex items-center gap-2">
+                                                        <span className="text-white text-sm font-bold uppercase">{pool.name}</span>
+                                                        <img src={getChainIcon(NETWORKS[selectedView as keyof typeof NETWORKS].icon)} className="size-3 opacity-50" alt="chain" />
+                                                    </div>
+                                                    <span className="text-[10px] text-white/30 uppercase">{NETWORKS[selectedView as keyof typeof NETWORKS].name}</span>
+                                                </div>
                                             </div>
-                                            <span className="text-[10px] text-white/30 uppercase">{NETWORKS[selectedView as keyof typeof NETWORKS].name}</span>
-                                        </div>
-                                    </div>
 
-                                    {/* Mobile Stats Row */}
-                                    <div className="grid grid-cols-3 w-full md:contents">
-                                        <div className="flex flex-col md:block md:col-span-2 md:text-right">
-                                            <span className="md:hidden text-[8px] text-white/20 uppercase font-bold mb-1">Reserves</span>
-                                            <span className="text-primary/80 text-sm tracking-tighter font-bold font-mono">
-                                                {refreshing ? <Skeleton className="h-4 w-16" /> : `$${Number(usdcPhysicalLiq).toLocaleString()}`}
-                                            </span>
-                                        </div>
-                                        <div className="flex flex-col md:block md:col-span-2 md:text-right">
-                                            <span className="md:hidden text-[8px] text-white/20 uppercase font-bold mb-1">Equity</span>
-                                            <span className="text-white text-sm tracking-tighter font-medium font-mono">
-                                                {refreshing ? <Skeleton className="h-4 w-16" /> : `$${Number(usdcLPBalance).toLocaleString()}`}
-                                            </span>
-                                        </div>
-                                        <div className="flex flex-col md:col-span-2 md:text-right">
-                                            <span className="md:hidden text-[9px] text-white/30 uppercase mb-1">APR</span>
-                                            <span className="text-primary text-sm font-bold tracking-tight">{apy}%</span>
-                                        </div>
-                                    </div>
-
-                                    <div className="w-full md:col-span-3 flex justify-end gap-3 mt-2 md:mt-0">
-                                        <button
-                                            onClick={() => openDepositModal(selectedView === 'USC' ? CONTRACTS.SPOKES.SEPOLIA.USDC : (CONTRACTS.SPOKES as Record<string, any>)[selectedView].USDC, "USDC")}
-                                            className="flex-1 md:flex-none bg-primary/90 hover:bg-primary text-primary-foreground px-4 py-2 md:py-1.5 rounded-sm font-black text-[10px] uppercase cursor-pointer transition-all active:scale-95"
-                                        >
-                                            Deposit
-                                        </button>
-                                        <button
-                                            onClick={() => openWithdrawModal(selectedView === 'USC' ? CONTRACTS.SPOKES.SEPOLIA.USDC : (CONTRACTS.SPOKES as Record<string, any>)[selectedView].USDC, "USDC")}
-                                            className="flex-1 md:flex-none border border-white/10 text-white/60 hover:text-white hover:bg-white/5 px-4 py-2 md:py-1.5 rounded-sm font-bold text-[10px] uppercase transition-all active:scale-95"
-                                        >
-                                            Withdraw
-                                        </button>
-                                    </div>
-                                </div>
-
-                                {/* Pool Row: USDT */}
-                                <div className="flex flex-col md:grid md:grid-cols-12 px-4 sm:px-6 py-5 hover:bg-white/[0.04] transition-all items-start md:items-center gap-4 md:gap-0">
-                                    <div className="w-full md:col-span-3 flex items-center gap-4">
-                                        <div className="size-10 bg-green-500/10 rounded-sm flex items-center justify-center border border-green-500/20 shrink-0">
-                                            <CryptoIcon ledgerId="ethereum/erc20/usd_tether__erc20_" ticker="USDT" network="ethereum" size="20px" />
-                                        </div>
-                                        <div className="flex flex-col">
-                                            <div className="flex items-center gap-2">
-                                                <span className="text-white text-sm font-bold uppercase">USDT_VAULT</span>
-                                                <img src={getChainIcon(NETWORKS[selectedView as keyof typeof NETWORKS].icon)} className="size-3 opacity-50" alt="chain" />
+                                            {/* Mobile Stats Row */}
+                                            <div className="grid grid-cols-3 w-full md:contents">
+                                                <div className="flex flex-col md:block md:col-span-2 md:text-right">
+                                                    <span className="md:hidden text-[8px] text-white/20 uppercase font-bold mb-1">Reserves</span>
+                                                    <span className="text-primary/80 text-sm tracking-tighter font-bold font-mono">
+                                                        {refreshing ? <Skeleton className="h-4 w-16" /> : `$${Number(stats.tvl).toLocaleString()}`}
+                                                    </span>
+                                                </div>
+                                                <div className="flex flex-col md:block md:col-span-2 md:text-right">
+                                                    <span className="md:hidden text-[8px] text-white/20 uppercase font-bold mb-1">Equity</span>
+                                                    <span className="text-white text-sm tracking-tighter font-medium font-mono">
+                                                        {refreshing ? <Skeleton className="h-4 w-16" /> : `$${Number(stats.lpBalance).toLocaleString()}`}
+                                                    </span>
+                                                </div>
+                                                <div className="flex flex-col md:block md:col-span-2 md:text-right">
+                                                    <span className="md:hidden text-[8px] text-white/20 uppercase font-bold mb-1">APR</span>
+                                                    <span className="text-primary text-sm tracking-tighter font-bold">{stats.apr}%</span>
+                                                </div>
                                             </div>
-                                            <span className="text-[10px] text-white/30 uppercase">{NETWORKS[selectedView as keyof typeof NETWORKS].name}</span>
-                                        </div>
-                                    </div>
 
-                                    {/* Mobile Stats Row */}
-                                    <div className="grid grid-cols-3 w-full md:contents">
-                                        <div className="flex flex-col md:block md:col-span-2 md:text-right">
-                                            <span className="md:hidden text-[8px] text-white/20 uppercase font-bold mb-1">Reserves</span>
-                                            <span className="text-primary/80 text-sm tracking-tighter font-bold font-mono">
-                                                {refreshing ? <Skeleton className="h-4 w-16" /> : `$${Number(usdtPhysicalLiq).toLocaleString()}`}
-                                            </span>
+                                            <div className="w-full md:col-span-3 flex justify-end gap-3 mt-2 md:mt-0">
+                                                <button
+                                                    onClick={() => openDepositModal(selectedView === 'USC' ? (CONTRACTS.SPOKES.SEPOLIA as any)[symbol] : (CONTRACTS.SPOKES as Record<string, any>)[selectedView][symbol], symbol)}
+                                                    className="flex-1 md:flex-none bg-primary/90 hover:bg-primary text-primary-foreground px-4 py-2 md:py-1.5 rounded-sm font-black text-[10px] uppercase cursor-pointer transition-all active:scale-95"
+                                                >
+                                                    Deposit
+                                                </button>
+                                                <button
+                                                    onClick={() => openWithdrawModal(selectedView === 'USC' ? (CONTRACTS.SPOKES.SEPOLIA as any)[symbol] : (CONTRACTS.SPOKES as Record<string, any>)[selectedView][symbol], symbol)}
+                                                    className="flex-1 md:flex-none border border-white/10 text-white/60 hover:text-white hover:bg-white/5 px-4 py-2 md:py-1.5 rounded-sm font-bold text-[10px] uppercase transition-all active:scale-95"
+                                                >
+                                                    Withdraw
+                                                </button>
+                                            </div>
                                         </div>
-                                        <div className="flex flex-col md:block md:col-span-2 md:text-right">
-                                            <span className="md:hidden text-[8px] text-white/20 uppercase font-bold mb-1">Equity</span>
-                                            <span className="text-white text-sm tracking-tighter font-medium font-mono">
-                                                {refreshing ? <Skeleton className="h-4 w-16" /> : `$${Number(usdtLPBalance).toLocaleString()}`}
-                                            </span>
-                                        </div>
-                                        <div className="flex flex-col md:block md:col-span-2 md:text-right">
-                                            <span className="md:hidden text-[8px] text-white/20 uppercase font-bold mb-1">APR</span>
-                                            <span className="text-primary text-sm tracking-tighter font-bold">{usdtPool?.apr ?? 14.5}%</span>
-                                        </div>
-                                    </div>
-
-                                    <div className="w-full md:col-span-3 flex justify-end gap-3 mt-2 md:mt-0">
-                                        <button
-                                            onClick={() => openDepositModal(selectedView === 'USC' ? CONTRACTS.SPOKES.SEPOLIA.USDT : (CONTRACTS.SPOKES as Record<string, any>)[selectedView].USDT, "USDT")}
-                                            className="flex-1 md:flex-none bg-primary/90 hover:bg-primary text-primary-foreground px-4 py-2 md:py-1.5 rounded-sm font-black text-[10px] uppercase cursor-pointer transition-all active:scale-95"
-                                        >
-                                            Deposit
-                                        </button>
-                                        <button
-                                            onClick={() => openWithdrawModal(selectedView === 'USC' ? CONTRACTS.SPOKES.SEPOLIA.USDT : (CONTRACTS.SPOKES as Record<string, any>)[selectedView].USDT, "USDT")}
-                                            className="flex-1 md:flex-none border border-white/10 text-white/60 hover:text-white hover:bg-white/5 px-4 py-2 md:py-1.5 rounded-sm font-bold text-[10px] uppercase transition-all active:scale-95"
-                                        >
-                                            Withdraw
-                                        </button>
-                                    </div>
-                                </div>
+                                    );
+                                })}
                             </div>
                         </div>
                     </section>
