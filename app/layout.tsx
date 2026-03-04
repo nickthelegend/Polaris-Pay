@@ -10,6 +10,11 @@ import { Providers } from "@/components/providers"
 import { Suspense } from "react"
 import Head from "next/head"
 
+export const viewport = {
+  width: "device-width",
+  initialScale: 1,
+}
+
 export const metadata: Metadata = {
   title: "Polaris - Crypto PayLater | Buy Now Pay Later with Cryptocurrency | Algorand DeFi",
   description: "Polaris revolutionizes crypto payments with instant buy now pay later (BNPL) solutions on Algorand blockchain. Secure, fast, and decentralized crypto lending platform for digital payments.",
@@ -18,7 +23,6 @@ export const metadata: Metadata = {
   creator: "Polaris",
   publisher: "Polaris",
   robots: "index, follow",
-  viewport: "width=device-width, initial-scale=1",
   icons: {
     icon: "/logo-image.png",
     apple: "/logo-image.png",

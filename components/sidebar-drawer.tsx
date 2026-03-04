@@ -43,6 +43,7 @@ export function SidebarDrawer({ open, onOpenChange }: { open?: boolean; onOpenCh
       </SheetTrigger>
       <SheetContent side="left" className="w-[280px] p-0 bg-[#070B12] border-r border-white/5 flex flex-col font-mono uppercase">
         <SheetHeader className="p-6 pb-2">
+          <SheetTitle className="sr-only">Menu</SheetTitle>
           <div className="flex items-center gap-2">
             <NextImage src="/logo.png" alt="Logo" width={120} height={32} className="h-8 w-auto" />
           </div>

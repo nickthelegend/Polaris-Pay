@@ -6,15 +6,13 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { useState } from "react"
 import Link from "next/link"
-import useSWR from "swr"
-
-const fetcher = (url: string) => fetch(url).then((r) => r.json())
+import { useQuery } from "convex/react"
+import { api } from "@/convex/_generated/api"
 
 const CATEGORIES = ["ALL", "Gaming", "Technology", "Entertainment", "Fashion", "Travel"]
 
 export default function MerchantsPage() {
-    const { data } = useSWR("/api/merchants", fetcher)
-    const merchants = data?.merchants ?? []
+    const merchants = useQuery(api.merchants.listMerchants) ?? []
 
     const [search, setSearch] = useState("")
     const [activeTab, setActiveTab] = useState("ALL")

@@ -11,16 +11,16 @@ export function usePolaris() {
     const [loading, setLoading] = useState(false);
     const [txHash, setTxHash] = useState<string | null>(null);
 
-    const getSpokeConfig = (networkId: number) => {
+    const getSpokeConfig = useCallback((networkId: number) => {
         if (networkId === NETWORKS.SEPOLIA.id) return CONTRACTS.SPOKES.SEPOLIA;
         if (networkId === NETWORKS.FUJI.id) return CONTRACTS.SPOKES.FUJI;
         if (networkId === NETWORKS.BASE_SEPOLIA.id) return CONTRACTS.SPOKES.BASE_SEPOLIA;
         if (networkId === NETWORKS.CRONOS.id) return CONTRACTS.SPOKES.CRONOS;
         if (networkId === NETWORKS.GANACHE.id) return CONTRACTS.SPOKES.GANACHE;
         return CONTRACTS.SOURCE; // Fallback
-    };
+    }, []);
 
-    const getMasterConfig = () => {
+    const getMasterConfig = useCallback(() => {
         const chainIdStr = wallet?.chainId?.toString() || '';
         const isLocal = chainIdStr.includes('1337') || chainIdStr === '0x539' || chainIdStr === '539';
 
@@ -29,10 +29,9 @@ export function usePolaris() {
         return isLocal
             ? { config: CONTRACTS.SPOKES.GANACHE, id: NETWORKS.GANACHE.id }
             : { config: CONTRACTS.MASTER, id: NETWORKS.USC.id };
-    };
+    }, [wallet?.chainId]);
 
     const getContract = useCallback(async (address: string, abi: any, networkId: number, useSigner = true) => {
-        // ... existing getContract logic ...
         const net = Object.values(NETWORKS).find(n => n.id === networkId);
         if (!net) throw new Error(`Network config not found for ID ${networkId}`);
 
@@ -45,8 +44,6 @@ export function usePolaris() {
             const currentChainId = parseInt(chainIdPart);
 
             if (currentChainId !== networkId) {
-                // Only switch if we are NOT targeting the Master chain from a Spoke 
-                // actually, for Master interactions like AddLiquidity, we MUST be on Master.
                 console.log(`[POLARIS] Switching from ${currentChainId} to ${networkId}...`);
                 await wallet.switchChain(networkId);
             }
@@ -54,13 +51,12 @@ export function usePolaris() {
             const signer = await provider.getSigner();
             return new Contract(address, actualAbi, signer);
         } else {
-            // For read-only, use the RPC defined in NETWORKS
             const provider = new JsonRpcProvider(net.rpc);
             return new Contract(address, actualAbi, provider);
         }
     }, [wallet]);
 
-    const depositLiquidity = async (tokenAddress: string, amount: string, networkId: number) => {
+    const depositLiquidity = useCallback(async (tokenAddress: string, amount: string, networkId: number) => {
         setLoading(true);
         try {
             const config = getSpokeConfig(networkId);
@@ -77,7 +73,6 @@ export function usePolaris() {
 
             const amountWei = parseUnits(amount, decimals);
 
-            // Check Balance & Auto-Mint on Testnet
             if (wallet?.address) {
                 const balance = await token.balanceOf(wallet.address);
                 if (balance < amountWei) {
@@ -89,7 +84,6 @@ export function usePolaris() {
                     if (isTestnet) {
                         console.log(`[POLARIS] Insufficient balance(${formatUnits(balance, decimals)}).Auto - minting...`);
                         try {
-                            // Mint enough for this tx + buffer
                             const mintAmount = amountWei * BigInt(10);
                             const mintTx = await token.mint(wallet.address, mintAmount);
                             await mintTx.wait();
@@ -120,9 +114,9 @@ export function usePolaris() {
         } finally {
             setLoading(false);
         }
-    };
+    }, [getSpokeConfig, getContract, wallet?.address]);
 
-    const addLiquidityFromProof = async (proof: {
+    const addLiquidityFromProof = useCallback(async (proof: {
         chainKey: any;
         blockHeight: any;
         encodedTransaction: string;
@@ -138,13 +132,10 @@ export function usePolaris() {
             const { config, id } = getMasterConfig();
             const poolManager = await getContract(config.POOL_MANAGER, ABIS.PoolManager, id);
 
-            // 1. DYNAMIC GAS ESTIMATION (Based on official bridge-examples logic)
-            // 21000 (base) + (continuityBlocks * 5000) + 20000 (overhead)
             const continuityBlocks = proof.continuityRoots?.length || 1;
-            const calculatedGas = 100000 + (continuityBlocks * 10000) + 100000; // Playing it safer than the examples for the pool manager complex logic
+            const calculatedGas = 100000 + (continuityBlocks * 10000) + 100000;
             console.log(`[POLARIS] ⏳ Calculated Gas Limit: ${calculatedGas} for ${continuityBlocks} continuity blocks.`);
 
-            // 2. PRE-FLIGHT VERIFICATION
             console.log("[POLARIS] 🔍 Running Pre-Flight staticCall verification...");
             try {
                 await poolManager.addLiquidityFromProof.staticCall(
@@ -169,7 +160,7 @@ export function usePolaris() {
 
                 if (reason.includes("Continuity proof") || reason.includes("checkpoint") || reason.includes("match attestation")) {
                     console.warn("[POLARIS] ⏳ Hub Oracle Delay: Continuity roots not yet pushing to state.");
-                    throw new Error("HUB_NOT_SYNCED"); // Frontend will catch this and give nice message
+                    throw new Error("HUB_NOT_SYNCED");
                 }
 
                 if (reason.includes("Native verification failed")) {
@@ -179,7 +170,6 @@ export function usePolaris() {
                 throw new Error(`CONTRACT_REVERT: ${reason} `);
             }
 
-            // 3. EXECUTE TRANSACTION
             console.log("[POLARIS] 💸 Sending proof submission to PoolManager...");
             const tx = await poolManager.addLiquidityFromProof(
                 proof.chainKey,
@@ -189,7 +179,7 @@ export function usePolaris() {
                 proof.siblings,
                 proof.lowerEndpointDigest,
                 proof.continuityRoots,
-                { gasLimit: calculatedGas } // Using our calculated gas
+                { gasLimit: calculatedGas }
             );
 
             console.log(`[POLARIS] 🛰️ Transaction Broadcasted: ${tx.hash} `);
@@ -205,8 +195,6 @@ export function usePolaris() {
 
         } catch (error: any) {
             console.error("[POLARIS] ❌ FinalizeSync Failed:", error);
-
-            // Re-throw standardized errors for the UI to catch
             if (error.message === "HUB_NOT_SYNCED") {
                 throw new Error("The Hub hasn't registered this block's continuity roots yet. Please wait 2-3 minutes for the Oracle and try again.");
             }
@@ -214,15 +202,14 @@ export function usePolaris() {
         } finally {
             setLoading(false);
         }
-    };
+    }, [getMasterConfig, getContract]);
 
-    const getPoolLiquidity = async (tokenAddress: string) => {
+    const getPoolLiquidity = useCallback(async (tokenAddress: string) => {
         try {
             const { config, id } = getMasterConfig();
             const poolManager = await getContract(config.POOL_MANAGER, ABIS.PoolManager, id, false);
             const liquidity = await poolManager.getPoolLiquidity(tokenAddress);
 
-            // Get decimals
             const token = await getContract(tokenAddress, ABIS.MockERC20, id, false);
             let decimals = 18;
             try { decimals = Number(await token.decimals()); } catch (e) { }
@@ -232,9 +219,9 @@ export function usePolaris() {
             console.error("Fetch liquidity failed:", error);
             return "0";
         }
-    };
+    }, [getMasterConfig, getContract]);
 
-    const getTokenBalance = async (tokenAddress: string, networkId: number) => {
+    const getTokenBalance = useCallback(async (tokenAddress: string, networkId: number) => {
         try {
             if (!wallet?.address) return "0";
             const token = await getContract(tokenAddress, ABIS.MockERC20, networkId, false);
@@ -248,16 +235,15 @@ export function usePolaris() {
             console.error("Fetch balance failed:", error);
             return "0";
         }
-    };
+    }, [wallet?.address, getContract]);
 
-    const getLPBalance = async (tokenAddress: string) => {
+    const getLPBalance = useCallback(async (tokenAddress: string) => {
         try {
             if (!wallet?.address) return "0";
             const { config, id } = getMasterConfig();
             const poolManager = await getContract(config.POOL_MANAGER, ABIS.PoolManager, id, false);
             const balance = await poolManager.getAssetBalance(wallet.address, tokenAddress);
 
-            // Get decimals
             const token = await getContract(tokenAddress, ABIS.MockERC20, id, false);
             let decimals = 18;
             try { decimals = Number(await token.decimals()); } catch (e) { }
@@ -267,9 +253,9 @@ export function usePolaris() {
             console.error("Fetch LP balance failed:", error);
             return "0";
         }
-    };
+    }, [wallet?.address, getMasterConfig, getContract]);
 
-    const getUserTotalCollateral = async () => {
+    const getUserTotalCollateral = useCallback(async () => {
         try {
             if (!wallet?.address) return "0";
             const { config, id } = getMasterConfig();
@@ -280,9 +266,9 @@ export function usePolaris() {
             console.error("Fetch total collateral failed:", error);
             return "0";
         }
-    };
+    }, [wallet?.address, getMasterConfig, getContract]);
 
-    const getTotalTVL = async () => {
+    const getTotalTVL = useCallback(async () => {
         try {
             const { config, id } = getMasterConfig();
             const poolManager = await getContract(config.POOL_MANAGER, ABIS.PoolManager, id, false);
@@ -290,15 +276,13 @@ export function usePolaris() {
             let totalUSD = 0;
             let i = 0;
 
-            // Loop through all whitelisted tokens on the Hub
-            while (i < 10) { // Safety limit for dev
+            while (i < 10) {
                 try {
                     const tokenAddr = await poolManager.whitelistedTokens(i);
                     if (!tokenAddr || tokenAddr === ethers.ZeroAddress) break;
 
                     const liquidity = await poolManager.getPoolLiquidity(tokenAddr);
 
-                    // Specific decimals for each token to ensure accurate aggregation
                     const token = await getContract(tokenAddr, ABIS.MockERC20, id, false);
                     let decimals = 18;
                     try { decimals = Number(await token.decimals()); } catch (e) { }
@@ -315,9 +299,9 @@ export function usePolaris() {
             console.error("Fetch total TVL failed:", error);
             return "0";
         }
-    };
+    }, [getMasterConfig, getContract]);
 
-    const getVaultPhysicalBalance = async (tokenAddress: string, networkId: number) => {
+    const getVaultPhysicalBalance = useCallback(async (tokenAddress: string, networkId: number) => {
         try {
             const config = getSpokeConfig(networkId);
             const token = await getContract(tokenAddress, ABIS.MockERC20, networkId, false);
@@ -331,47 +315,39 @@ export function usePolaris() {
             console.error("Fetch physical vault balance failed:", error);
             return "0";
         }
-    };
+    }, [getSpokeConfig, getContract]);
 
-    const getScore = async () => {
+    const getScore = useCallback(async () => {
         try {
             if (!wallet?.address) return "0";
             const { config, id } = getMasterConfig();
             const scoreManager = await getContract(config.SCORE_MANAGER, ABIS.ScoreManager, id, false);
             const score = await scoreManager.getScore(wallet.address);
             const scoreNum = Number(score);
-
-            // If the Hub returns 0, it usually means a new user.
-            // In the Polaris system, the minimum baseline is 300.
             return scoreNum === 0 ? "300" : scoreNum.toString();
         } catch (error) {
             console.error("Fetch score failed:", error);
-            return "300"; // Default to base score for demo
+            return "300";
         }
-    };
+    }, [wallet?.address, getMasterConfig, getContract]);
 
-    const getCreditLimit = async () => {
+    const getCreditLimit = useCallback(async () => {
         try {
             if (!wallet?.address) return "0";
             const { config, id } = getMasterConfig();
 
-            // 1. Get raw limit from ScoreManager
             const scoreManager = await getContract(config.SCORE_MANAGER, ABIS.ScoreManager, id, false);
             const totalLimit = await scoreManager.getCreditLimit(wallet.address);
 
-            // 2. Get active debt from LoanEngine
             const loanEngine = await getContract(config.LOAN_ENGINE, ABIS.LoanEngine, id, false);
             const activeDebt = await loanEngine.userActiveDebt(wallet.address);
 
-            // 3. Calculate Available Limit
             const available = totalLimit > activeDebt ? totalLimit - activeDebt : BigInt(0);
-
             const limitVal = parseFloat(formatUnits(available, 18));
 
-            // FALLBACK Logic for demo: if available is 0 but it's first time, we check equity
             if (limitVal === 0 && activeDebt === BigInt(0)) {
                 const equity = await getUserTotalCollateral();
-                return (parseFloat(equity) * 0.3).toString(); // Base 30% LTV
+                return (parseFloat(equity) * 0.3).toString();
             }
 
             return limitVal.toString();
@@ -379,17 +355,14 @@ export function usePolaris() {
             console.error("Fetch credit limit failed:", error);
             return "0";
         }
-    };
+    }, [wallet?.address, getMasterConfig, getContract, getUserTotalCollateral]);
 
-    const createLoan = async (amount: string, tokenAddress: string) => {
+    const createLoan = useCallback(async (amount: string, tokenAddress: string) => {
         setLoading(true);
         try {
             const { config, id } = getMasterConfig();
             const loanEngine = await getContract(config.LOAN_ENGINE, ABIS.LoanEngine, id);
 
-            // Get decimals of the POOL token we are borrowing? 
-            // Logic: createLoan(user, amount, poolToken)
-            // Amount is in poolToken decimals.
             const token = await getContract(tokenAddress, ABIS.MockERC20, id, false);
             let decimals = 18;
             try { decimals = Number(await token.decimals()); } catch (e) { }
@@ -406,17 +379,14 @@ export function usePolaris() {
         } finally {
             setLoading(false);
         }
-    };
+    }, [getMasterConfig, getContract, wallet?.address]);
 
-    const repayLoan = async (loanId: number, amount: string) => {
+    const repayLoan = useCallback(async (loanId: number, amount: string) => {
         setLoading(true);
         try {
             const { config, id } = getMasterConfig();
             const loanEngine = await getContract(config.LOAN_ENGINE, ABIS.LoanEngine, id);
 
-            // Need to know WHO we are repaying to know decimals.
-            // But we only have ID. 
-            // We fetch the loan first.
             const loan = await loanEngine.loans(loanId);
             const tokenAddress = loan.poolToken;
 
@@ -436,9 +406,9 @@ export function usePolaris() {
         } finally {
             setLoading(false);
         }
-    };
+    }, [getMasterConfig, getContract]);
 
-    const getLoans = async () => {
+    const getLoans = useCallback(async () => {
         try {
             if (!wallet?.address) return [];
             const { config, id } = getMasterConfig();
@@ -466,9 +436,9 @@ export function usePolaris() {
             console.error("Fetch loans failed:", error);
             return [];
         }
-    };
+    }, [wallet?.address, getMasterConfig, getContract]);
 
-    const requestWithdrawal = async (tokenAddress: string, amount: string, destChainId: number) => {
+    const requestWithdrawal = useCallback(async (tokenAddress: string, amount: string, destChainId: number) => {
         setLoading(true);
         try {
             const { config, id } = getMasterConfig();
@@ -485,9 +455,9 @@ export function usePolaris() {
         } finally {
             setLoading(false);
         }
-    };
+    }, [getMasterConfig, getContract]);
 
-    const payWithCredit = async (merchantAddress: string, amount: string, tokenAddress: string) => {
+    const payWithCredit = useCallback(async (merchantAddress: string, amount: string, tokenAddress: string) => {
         setLoading(true);
         try {
             const { config, id } = getMasterConfig();
@@ -510,9 +480,9 @@ export function usePolaris() {
         } finally {
             setLoading(false);
         }
-    };
+    }, [getMasterConfig, getContract]);
 
-    const mintTokens = async (tokenAddress: string, amount: string, networkId: number) => {
+    const mintTokens = useCallback(async (tokenAddress: string, amount: string, networkId: number) => {
         setLoading(true);
         try {
             const token = await getContract(tokenAddress, ABIS.MockERC20, networkId);
@@ -537,26 +507,24 @@ export function usePolaris() {
         } finally {
             setLoading(false);
         }
-    };
+    }, [getContract, wallet?.address]);
 
-    const getAPY = async () => {
+    const getAPY = useCallback(async () => {
         try {
             const { config, id } = getMasterConfig();
             const loanEngine = await getContract(config.LOAN_ENGINE, ABIS.LoanEngine, id, false);
             const rate = await loanEngine.INTEREST_RATE_BPS();
             const fee = await loanEngine.PROTOCOL_FEE_BPS();
 
-            // APY for lenders = (Total Interest * (1 - Fee%)) / Total Assets
-            // Simplified: Rate * (1 - ProtocolFeeBps/10000)
             const baseRateNum = Number(rate) / 100; // e.g. 10.00
             const feeFactor = (10000 - Number(fee)) / 10000;
             return (baseRateNum * feeFactor).toFixed(2);
         } catch (e) {
-            return "8.00"; // Fallback
+            return "8.00";
         }
-    };
+    }, [getMasterConfig, getContract]);
 
-    const updateCreditProfile = async (attestation: {
+    const updateCreditProfile = useCallback(async (attestation: {
         collateral: string;
         debt: string;
         timestamp: number;
@@ -583,25 +551,21 @@ export function usePolaris() {
         } finally {
             setLoading(false);
         }
-    };
+    }, [getMasterConfig, getContract, wallet?.address]);
 
-    const getExternalNetValue = async () => {
+    const getExternalNetValue = useCallback(async () => {
         try {
             if (!wallet?.address) return "0";
             const { config, id } = getMasterConfig();
-            console.log(`[POLARIS] getExternalNetValue: ConfigID=${id}, Oracle=${(config as any).CREDIT_ORACLE}, User=${wallet.address}`);
             const oracle = await getContract((config as any).CREDIT_ORACLE, ABIS.CreditOracle, id, false);
             const value = await oracle.getExternalNetValue(wallet.address);
             return formatUnits(value, 18);
         } catch (error: any) {
-            if (error.code === 'BAD_DATA') {
-                console.warn("[POLARIS] getExternalNetValue: BAD_DATA returned. Contract empty or wrong network? Defaulting to 0.");
-                return "0";
-            }
+            if (error.code === 'BAD_DATA') return "0";
             console.error("Fetch external net value failed:", error);
             return "0";
         }
-    };
+    }, [wallet?.address, getMasterConfig, getContract]);
 
     return {
         loading,

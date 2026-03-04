@@ -1,9 +1,11 @@
 import { NextResponse } from "next/server";
-import { supabase } from "@/lib/supabase";
 import crypto from "crypto";
+import { ConvexHttpClient } from "convex/browser";
+import { api } from "@/convex/_generated/api";
+
+const convex = new ConvexHttpClient(process.env.NEXT_PUBLIC_CONVEX_URL!);
 
 export async function POST(req: Request) {
-    // API Authentication: Merchants use ClientID and ClientSecret
     const clientId = req.headers.get("x-client-id");
     const clientSecret = req.headers.get("x-client-secret");
 
@@ -19,50 +21,36 @@ export async function POST(req: Request) {
     }
 
     // 1. Verify Merchant App
-    const { data: app, error: appError } = await supabase
-        .from('merchant_apps')
-        .select('id, name')
-        .eq('client_id', clientId)
-        .eq('client_secret', clientSecret)
-        .single();
+    const app = await convex.query(api.merchants.getAppByClient, {
+        clientId,
+        clientSecret
+    });
 
-    if (appError || !app) {
+    if (!app) {
         console.error("Auth failed for client:", clientId);
         return NextResponse.json({ error: "Invalid API Credentials" }, { status: 403 });
     }
 
     // 2. Generate unique secure bill hash
-    // We use a cryptographically secure hex string as the bill identifier
     const billHash = crypto.randomBytes(20).toString('hex');
 
     // 3. Create the Bill record
-    const { data: bill, error: billError } = await supabase
-        .from('projects_bills')
-        .insert({
-            app_id: app.id,
-            amount,
-            asset,
-            description,
-            metadata: metadata || {},
-            hash: billHash,
-            status: 'pending'
-        })
-        .select()
-        .single();
-
-    if (billError) {
-        console.error("Database error creating bill:", billError);
-        return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
-    }
+    const billId = await convex.mutation(api.merchants.createBill, {
+        appId: app._id,
+        amount: amount.toString(),
+        asset,
+        description,
+        metadata: metadata || {},
+        hash: billHash
+    });
 
     // 4. Return integration data
-    // The merchant can now redirect the user to this checkoutUrl
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
     return NextResponse.json({
-        billId: bill.id,
-        billHash: bill.hash,
-        checkoutUrl: `${baseUrl}/pay/${bill.hash}`,
+        billId,
+        billHash,
+        checkoutUrl: `${baseUrl}/pay/${billHash}`,
         merchantName: app.name,
-        status: bill.status
+        status: 'pending'
     });
 }

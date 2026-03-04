@@ -4,6 +4,7 @@ import type React from "react"
 import { PrivyProvider } from "@privy-io/react-auth"
 import { ToastContainer } from "react-toastify"
 import "react-toastify/dist/ReactToastify.css"
+import { ConvexClientProvider } from "./convex-client-provider"
 
 export function Providers({ children }: { children: React.ReactNode }) {
   return (
@@ -90,7 +91,9 @@ export function Providers({ children }: { children: React.ReactNode }) {
         ]
       }}
     >
-      {children}
+      <ConvexClientProvider>
+        {children}
+      </ConvexClientProvider>
       <ToastContainer
         position="top-right"
         autoClose={5000}

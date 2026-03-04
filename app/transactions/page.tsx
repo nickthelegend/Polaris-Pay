@@ -1,7 +1,9 @@
 "use client"
 
 import { ConnectGate } from "@/components/connect-gate"
-import useSWR from "swr"
+import { useQuery } from "convex/react"
+import { api } from "@/convex/_generated/api"
+import { usePrivy } from "@privy-io/react-auth"
 import {
   ShoppingBag,
   Tv,
@@ -22,51 +24,45 @@ import {
 import Link from "next/link"
 import { NETWORKS } from "@/lib/contracts"
 
-const fetcher = (u: string) => fetch(u).then((r) => r.json())
-
 export default function TransactionsPage() {
-  const { data } = useSWR("/api/transactions", fetcher)
+  const { user } = usePrivy()
+  const address = user?.wallet?.address
 
-  const rawTransactions = data?.transactions ?? []
-  const bills = data?.bills ?? []
-  const deposits = data?.deposits ?? []
-  const bridges = data?.bridges ?? []
+  const rawTransactions = useQuery(api.merchants.listTransactions, { userAddress: address }) ?? []
+  const bills = useQuery(api.merchants.listBills, { userAddress: address }) ?? []
+  const deposits = useQuery(api.merchants.listDeposits, { userAddress: address }) ?? []
+  const bridges = useQuery(api.merchants.listBridges, { userAddress: address }) ?? []
 
   // Combine all activity into one list for the main feed
   const combinedActivity = [
-    ...rawTransactions.map((t: any) => ({ ...t, icon: <ShoppingBag className="w-5 h-5" />, color: 'text-blue-400' })),
-    ...deposits.map((d: any) => ({ ...d, icon: <Database className="w-5 h-5" />, color: 'text-green-400' })),
-    ...bridges.map((b: any) => ({ ...b, icon: <Repeat className="w-5 h-5" />, color: 'text-purple-400' }))
-  ].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+    ...rawTransactions.map((t: any) => ({ ...t, type: 'transaction', icon: <ShoppingBag className="w-5 h-5" />, color: 'text-blue-400' })),
+    ...deposits.map((d: any) => ({ ...d, type: 'deposit', title: 'Pool Deposit', icon: <Database className="w-5 h-5" />, color: 'text-green-400' })),
+    ...bridges.map((b: any) => ({ ...b, type: 'bridge', title: 'Cross-chain Bridge', icon: <Repeat className="w-5 h-5" />, color: 'text-purple-400' }))
+  ].sort((a, b) => (b._creationTime || 0) - (a._creationTime || 0));
 
   const monthlySpend = rawTransactions
-    .filter((t: any) => t.asset === "USDC")
-    .reduce((acc: number, t: any) => acc + Number(t.amount), 0)
+    .filter((t: any) => t.category === "spend" || t.category === "repayment")
+    .reduce((acc: number, t: any) => acc + Number(t.amount || 0), 0)
 
   const upcomingBillsTotal = bills
-    .filter((b: any) => b.asset === "USDC")
-    .reduce((acc: number, b: any) => acc + Number(b.amount), 0)
+    .reduce((acc: number, b: any) => acc + Number(b.amount || 0), 0)
 
   const getExplorerLink = (item: any) => {
     if (item.type === 'deposit') {
-      // If it's a deposit and we have a Hub hash, link to Hub
-      if (item.hub_tx_hash) {
-        return `${NETWORKS.USC.explorer}/tx/${item.hub_tx_hash}`;
+      if (item.hubTxHash) {
+        return `${NETWORKS.USC.explorer}/tx/${item.hubTxHash}`;
       }
-      // Otherwise link to source chain
-      const chain = item.chain_id === 11155111 ? NETWORKS.SEPOLIA : NETWORKS.USC;
-      return `${chain.explorer}/tx/${item.tx_hash}`;
+      return `${NETWORKS.SEPOLIA.explorer}/tx/${item.txHash}`;
     }
     if (item.type === 'bridge') {
-      return `${NETWORKS.SEPOLIA.explorer}/tx/${item.tx_hash}`;
+      return `${NETWORKS.SEPOLIA.explorer}/tx/${item.txHash}`;
     }
-    return `${NETWORKS.USC.explorer}/tx/${item.tx_hash || '0x'}`;
+    return `${NETWORKS.USC.explorer}/tx/${item.txHash || '0x'}`;
   }
 
   return (
     <ConnectGate>
       <div className="flex flex-col gap-8 py-8 font-mono">
-        {/* Top Summary Section */}
         <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 font-mono">
           <div className="glass-card rounded-2xl p-8 border-l-4 border-l-primary/40 relative overflow-hidden group">
             <p className="text-foreground/50 text-[10px] font-bold uppercase tracking-[0.2em] mb-2">Monthly Spend</p>
@@ -112,9 +108,7 @@ export default function TransactionsPage() {
           </div>
         </section>
 
-        {/* Details Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-          {/* Recent Activity Feed */}
           <section className="lg:col-span-7 flex flex-col gap-4">
             <div className="flex items-center justify-between px-2">
               <h2 className="text-white text-lg font-bold tracking-tight uppercase tracking-wider">Recent Activity</h2>
@@ -141,7 +135,7 @@ export default function TransactionsPage() {
                     <div>
                       <div className="flex items-center gap-2">
                         <span className="text-white font-bold text-sm tracking-tight">{t.title}</span>
-                        {t.hub_tx_hash && (
+                        {t.hubTxHash && (
                           <span className="text-[8px] bg-primary/20 text-primary px-1.5 py-0.5 rounded border border-primary/20 font-black tracking-widest uppercase">
                             Cross-Chain
                           </span>
@@ -153,9 +147,7 @@ export default function TransactionsPage() {
                         ) : null}
                       </div>
                       <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1">
-                        <span className="text-[10px] text-white/30 uppercase font-black tabular-nums">{new Date(t.created_at).toLocaleDateString()}</span>
-
-                        {/* Source Link */}
+                        <span className="text-[10px] text-white/30 uppercase font-black tabular-nums">{new Date(t._creationTime).toLocaleDateString()}</span>
                         <Link
                           href={getExplorerLink(t)}
                           target="_blank"
@@ -163,11 +155,9 @@ export default function TransactionsPage() {
                         >
                           {t.type === 'transaction' ? 'EXPLORER' : 'SOURCE'} <ExternalLink className="w-2.5 h-2.5" />
                         </Link>
-
-                        {/* Hub Link (If Synced) */}
-                        {t.hub_tx_hash && (
+                        {t.hubTxHash && (
                           <Link
-                            href={`${NETWORKS.USC.explorer}/tx/${t.hub_tx_hash}`}
+                            href={`${NETWORKS.USC.explorer}/tx/${t.hubTxHash}`}
                             target="_blank"
                             className="text-[10px] text-green-400/80 hover:text-green-400 flex items-center gap-1 font-bold underline decoration-green-400/20 underline-offset-2"
                           >
@@ -181,9 +171,9 @@ export default function TransactionsPage() {
                     <div className="flex items-center justify-end gap-1">
                       <span className="text-white font-black text-xl tabular-nums tracking-tighter">
                         {t.type === 'deposit' || t.type === 'bridge' ? '+' : '-'}
-                        {Number(t.amount).toFixed(2)}
+                        {Number(t.amount || 0).toFixed(2)}
                       </span>
-                      <span className="text-white/30 text-[10px] font-black uppercase mt-1">{t.asset}</span>
+                      <span className="text-white/30 text-[10px] font-black uppercase mt-1">USDC</span>
                     </div>
                     <span className={`text-[9px] font-black uppercase tracking-widest ${t.type === 'deposit' ? 'text-green-500/50' : t.type === 'bridge' ? 'text-purple-500/40' : 'text-blue-500/40'}`}>
                       {t.type}
@@ -194,9 +184,7 @@ export default function TransactionsPage() {
             </div>
           </section>
 
-          {/* Sidebar Section */}
           <div className="lg:col-span-5 flex flex-col gap-8">
-            {/* Upcoming Bills List */}
             <section className="flex flex-col gap-4">
               <div className="flex items-center justify-between px-2">
                 <h2 className="text-white text-lg font-bold tracking-tight uppercase tracking-wider">Scheduled Bills</h2>
@@ -232,7 +220,6 @@ export default function TransactionsPage() {
               </div>
             </section>
 
-            {/* Network Links */}
             <section className="glass-card rounded-2xl p-6 border border-white/5">
               <h3 className="text-white font-bold text-xs uppercase tracking-widest mb-4 flex items-center gap-2">
                 <Globe className="w-4 h-4 text-primary" />

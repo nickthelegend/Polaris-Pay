@@ -1,7 +1,7 @@
 "use client"
 
-import useSWR from "swr"
-const fetcher = (url: string) => fetch(url).then((r) => r.json())
+import { useQuery, useMutation } from "convex/react"
+import { api } from "@/convex/_generated/api"
 
 import { ConnectGate } from "@/components/connect-gate"
 import {
@@ -151,27 +151,28 @@ export default function PoolsPage() {
         }
     }, [isProofViewerOpen]);
 
-    const { data: poolsData, isLoading: isDbLoading } = useSWR("/api/pools", fetcher)
-    const { data: txData } = useSWR("/api/transactions", fetcher)
-    const pools = poolsData?.pools ?? []
-    const dbDeposits = txData?.deposits ?? []
+    const pools = useQuery(api.merchants.listPools) ?? []
+    const dbDeposits = useQuery(api.merchants.listDeposits, { userAddress: address }) ?? []
 
     const usdcPool = pools.find((p: any) => p.name === 'USDC_VAULT')
     const usdtPool = pools.find((p: any) => p.name === 'USDT_VAULT')
 
-    // Initial load from Supabase for instant rendering
+    const updatePoolStats = useMutation(api.merchants.updatePoolStats);
+    const updateBalance = useMutation(api.merchants.updateBalance);
+
+    // Initial load from Convex for instant rendering
     useEffect(() => {
         if (pools.length > 0) {
-            console.log("[POLARIS] Initializing state from Supabase cache...");
+            console.log("[POLARIS] Initializing state from Convex cache...");
             const newStats: Record<string, any> = { ...poolStats };
 
             pools.forEach((p: any) => {
                 const symbol = p.name.replace("_VAULT", "");
                 newStats[symbol] = {
                     ...newStats[symbol],
-                    physical: p.physical_balance?.toString() || "0",
+                    physical: p.physicalBalance?.toString() || "0",
                     tvl: p.tvl?.toString() || "0",
-                    lpBalance: p.lp_balance?.toString() || "0",
+                    lpBalance: p.lpBalance?.toString() || "0",
                     apr: p.apr?.toString() || "12.0"
                 };
             });
@@ -206,7 +207,7 @@ export default function PoolsPage() {
                 setPoolStats(newStats);
             }
         }
-    }, [poolsData, txData, selectedView]);
+    }, [pools, dbDeposits, selectedView]);
 
     useEffect(() => {
         if (authenticated) {
@@ -214,97 +215,100 @@ export default function PoolsPage() {
         }
     }, [authenticated, selectedView, address, chainId]);
 
-    const savePoolCache = async (name: string, data: any) => {
-        try {
-            await fetch("/api/pools", {
-                method: "POST",
-                body: JSON.stringify({ name, ...data })
-            });
-        } catch (e) { console.warn("Cache update failed", e); }
-    };
 
     const refreshData = async () => {
         setRefreshing(true);
         try {
-            // 1. Global Header Cards (Always Hub-Aggregated)
-            const aggregatedEquity = await getUserTotalCollateral();
+            // 1. Initial parallel fetch for core metrics
+            const [aggregatedEquity, aggregatedTVL, dynamicApy, score, limit, loans] = await Promise.all([
+                getUserTotalCollateral(),
+                getTotalTVL(),
+                getAPY(),
+                getScore(),
+                getCreditLimit(),
+                getLoans()
+            ]);
 
-            // OPTIMISTIC LOGIC: If Hub shows 0, but DB has deposits, keep the DB value as "Optimistic"
+            // 2. Update state for core metrics
             if (parseFloat(aggregatedEquity) > 0) {
                 setTotalEquity(aggregatedEquity);
-            } else {
-                console.log("[POLARIS] Hub equity is 0. Keeping DB equity as optimistic fallback.");
             }
-
-            const aggregatedTVL = await getTotalTVL();
             setTotalTVL(aggregatedTVL);
-
-            const dynamicApy = await getAPY();
             setApy(dynamicApy);
-
-            // 2. Score & Loans (Always Hub-Aggregated)
-            const score = await getScore();
             setUserScore(score);
+            setActiveLoans(loans);
 
-            const limit = await getCreditLimit();
-            // OPTIMISTIC LIMIT: If Hub returns 0 limit but we HAVE equity in state, show shadow limit
+            // Optimistic limit logic
             if (parseFloat(limit) > 0) {
                 setCreditLimit(limit);
             } else if (parseFloat(totalEquity) > 0) {
-                console.log("[POLARIS] Hub limit is 0. Using shadow limit logic (50% of equity).");
                 setCreditLimit((parseFloat(totalEquity) * 0.5).toString());
             } else {
                 setCreditLimit("0");
             }
 
-            const loans = await getLoans();
-            setActiveLoans(loans);
-
-            // 3. Asset Row Logic (Global vs Local)
+            // 3. Parallel fetch and cache for all pools and user balances
             const newStats: Record<string, any> = { ...poolStats };
-            const spokeChains = ["SEPOLIA", "FUJI", "BASE_SEPOLIA", "CRONOS"]; // Support all known spokes
+            const spokeChains = ["SEPOLIA", "FUJI", "BASE_SEPOLIA", "CRONOS"];
 
-            for (const symbol of Object.keys(TOKEN_METADATA)) {
+            await Promise.all(Object.keys(TOKEN_METADATA).map(async (symbol) => {
                 let totalRes = 0;
                 let totalLP = 0;
 
-                for (const spokeKey of spokeChains) {
+                // Inner loop parallelized for all networks
+                await Promise.all(spokeChains.map(async (spokeKey) => {
                     const spoke = (CONTRACTS.SPOKES as any)[spokeKey];
                     const tokenAddr = spoke[symbol];
                     if (tokenAddr) {
                         try {
-                            const res = await getPoolLiquidity(tokenAddr);
-                            const lp = await getLPBalance(tokenAddr);
+                            const [res, lp] = await Promise.all([
+                                getPoolLiquidity(tokenAddr),
+                                getLPBalance(tokenAddr)
+                            ]);
                             totalRes += parseFloat(res);
                             totalLP += parseFloat(lp);
                         } catch (e) {
-                            // Skip if contract or RPC error for this specific token on this chain
+                            // Skip if network/RPC fails for this token
                         }
                     }
-                }
+                }));
 
                 newStats[symbol] = {
                     ...newStats[symbol],
                     tvl: totalRes.toString(),
-                    physical: totalRes.toString(), // Simplified for demo
+                    physical: totalRes.toString(),
                     lpBalance: totalLP.toString()
                 };
 
-                // 4. Local User Balances (Based on the dropdown selection for the Deposit button)
-                const currentNetId = NETWORKS[selectedView].id;
-                const currentSpoke = (CONTRACTS.SPOKES as any)[selectedView];
-                if (selectedView !== "USC" && currentSpoke && currentSpoke[symbol]) {
-                    const ub = await getTokenBalance(currentSpoke[symbol], currentNetId);
-                    newStats[symbol].userBalance = ub;
-                }
+                // ASYNC Update Convex with global pool stats
+                updatePoolStats({
+                    name: `${symbol}_VAULT`,
+                    asset: symbol,
+                    tvl: totalRes,
+                    apr: 12.0,
+                    lpBalance: totalLP,
+                    physicalBalance: totalRes,
+                    status: "active"
+                }).catch(e => console.warn("Failed to update pool stats", e));
 
-                // Update Cache
-                savePoolCache(`${symbol}_VAULT`, {
-                    tvl: totalRes.toString(),
-                    lp_balance: totalLP,
-                    physical_balance: totalRes.toString()
-                });
-            }
+                // Fetch current user wallet balance for selected spoke
+                const currentNetId = (NETWORKS as any)[selectedView]?.id;
+                const currentSpoke = (CONTRACTS.SPOKES as any)[selectedView];
+                if (address && selectedView !== "USC" && currentSpoke && currentSpoke[symbol]) {
+                    try {
+                        const ub = await getTokenBalance(currentSpoke[symbol], currentNetId);
+                        newStats[symbol].userBalance = ub;
+
+                        // ASYNC Persist user wallet balance to DB
+                        updateBalance({
+                            userAddress: address,
+                            network: selectedView,
+                            symbol: symbol,
+                            balance: parseFloat(ub)
+                        }).catch(e => console.warn("Failed to update user balance", e));
+                    } catch (e) { }
+                }
+            }));
 
             setPoolStats(newStats);
             console.log(`[POLARIS] Refresh Complete. Aggregated TVL: $${aggregatedTVL}`);
@@ -348,7 +352,8 @@ export default function PoolsPage() {
                         chainKey: NETWORKS[depositTarget.chainKey].id,
                         userAddress: address,
                         amount: depositAmount,
-                        tokenAddress: depositTarget.token
+                        tokenAddress: depositTarget.token,
+                        asset: depositTarget.symbol
                     })
                 });
                 toast.success("Deposit recorded. Syncing in background...");

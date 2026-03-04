@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { supabase } from '@/lib/supabase';
+import { useQuery } from 'convex/react';
+import { api } from '../convex/_generated/api';
 
 export interface BridgeTransaction {
     id: string;
@@ -10,86 +10,31 @@ export interface BridgeTransaction {
     hub_tx_hash?: string;
     usc_query_id: string;
     status: 'DETECTED' | 'BUILDING_PROOF' | 'WAITING_ATTESTATION' | 'SUBMITTED' | 'VERIFIED' | 'COMPLETED' | 'FAILED';
-    created_at: string;
+    created_at: string; // Updated to string for compatibility with frontend expectations
 }
 
 export function useBridge(userAddress: string | undefined) {
-    const [transactions, setTransactions] = useState<BridgeTransaction[]>([]);
-    const [loading, setLoading] = useState(true);
+    const rawDeposits = useQuery(api.merchants.listDeposits, { userAddress });
+    const isLoading = rawDeposits === undefined;
 
     const mapStatus = (status: string) => {
-        if (status === 'Synced') return 'COMPLETED';
-        if (status === 'ProofGenerated') return 'VERIFIED';
+        if (status === 'Synced' || status === 'COMPLETED') return 'COMPLETED';
+        if (status === 'ProofGenerated' || status === 'VERIFIED') return 'VERIFIED';
         if (status === 'WaitingAttestation') return 'WAITING_ATTESTATION';
         return 'BUILDING_PROOF';
     };
 
-    useEffect(() => {
-        if (!userAddress) return;
+    const transactions: BridgeTransaction[] = (rawDeposits ?? []).map((d: any) => ({
+        id: d._id,
+        user_address: d.userAddress,
+        token_address: d.tokenAddress || "0x...",
+        amount: d.amount ? d.amount.toString() : "0",
+        source_tx_hash: d.txHash,
+        hub_tx_hash: d.hubTxHash,
+        usc_query_id: "",
+        status: mapStatus(d.status) as BridgeTransaction['status'],
+        created_at: new Date(d._creationTime).toISOString()
+    }));
 
-        // Fetch existing
-        const fetchTxs = async () => {
-            const { data } = await supabase
-                .from('deposits')
-                .select('*')
-                .eq('user_address', userAddress)
-                .order('created_at', { ascending: false });
-
-            if (data) {
-                const formatted = data.map((d: any) => ({
-                    id: d.id.toString(),
-                    user_address: d.user_address,
-                    token_address: d.token_address || "0x...", // Fallback
-                    amount: d.amount ? d.amount.toString() : "0",
-                    source_tx_hash: d.tx_hash,
-                    hub_tx_hash: d.hub_tx_hash,
-                    usc_query_id: "",
-                    status: mapStatus(d.status) as BridgeTransaction['status'],
-                    created_at: d.created_at
-                }));
-                setTransactions(formatted);
-            }
-            setLoading(false);
-        };
-
-        fetchTxs();
-
-        // Listen for real-time changes
-        const channel = supabase
-            .channel('deposits_changes')
-            .on('postgres_changes',
-                { event: '*', schema: 'public', table: 'deposits', filter: `user_address=eq.${userAddress}` },
-
-                (payload) => {
-                    const d = payload.new as any;
-                    const updatedTx: BridgeTransaction = {
-                        id: d.id.toString(),
-                        user_address: d.user_address,
-                        token_address: d.token_address || "0x...",
-                        amount: d.amount ? d.amount.toString() : "0",
-                        source_tx_hash: d.tx_hash,
-                        hub_tx_hash: d.hub_tx_hash,
-                        usc_query_id: "",
-                        status: mapStatus(d.status) as BridgeTransaction['status'],
-                        created_at: d.created_at
-                    };
-
-                    setTransactions((prev) => {
-                        const exists = prev.find(t => t.id === updatedTx.id);
-                        if (exists) {
-                            return prev.map(t => t.id === updatedTx.id ? updatedTx : t);
-                        } else {
-                            return [updatedTx, ...prev];
-                        }
-                    });
-                }
-            )
-            .subscribe();
-
-        return () => {
-            supabase.removeChannel(channel);
-        };
-    }, [userAddress]);
-
-    return { transactions, loading };
+    return { transactions, loading: isLoading };
 }

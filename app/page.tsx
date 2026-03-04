@@ -1,6 +1,7 @@
 "use client"
 
-import useSWR from "swr"
+import { useQuery } from "convex/react"
+import { api } from "@/convex/_generated/api"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import Image from "next/image"
@@ -17,12 +18,12 @@ import { usePolaris } from "@/hooks/use-polaris"
 import { useState, useEffect } from "react"
 import { formatDistanceToNow } from "date-fns"
 
-const fetcher = (url: string) => fetch(url).then((r) => r.json())
-
 export default function Page() {
-  const { authenticated } = usePrivy()
+  const { authenticated, user } = usePrivy()
+  const address = user?.wallet?.address
+
   const { getCreditLimit, getLoans, loading: polarisLoading } = usePolaris()
-  const { data: txData } = useSWR("/api/transactions", fetcher, { refreshInterval: 15_000 })
+  const transactions = useQuery(api.merchants.listTransactions, { userAddress: address }) ?? []
 
   const [realStats, setRealStats] = useState({
     limit: 200,
@@ -48,12 +49,8 @@ export default function Page() {
             if (l.status === 0) { // Active
               const outstanding = parseFloat(l.principal) - parseFloat(l.repaid)
               totalUsed += outstanding
-              // minDue could be approximated as 25% of outstanding for testnet demo
               minDue += outstanding * 0.25
 
-              // In a real app we'd fetch dueDates[0] from contract, 
-              // but use-polaris currently formatUnits(l.startTime).
-              // Let's assume +14 days from startTime for demo if not explicitly in l
               const dueDate = new Date(l.startTime * 1000 + 14 * 24 * 60 * 60 * 1000)
               earliestNextDue = dueDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
             }
@@ -77,7 +74,7 @@ export default function Page() {
       }
       updateStats()
     }
-  }, [authenticated, txData])
+  }, [authenticated, address, getCreditLimit, getLoans, transactions])
 
   if (!authenticated) {
     return <LandingPage />
@@ -87,9 +84,7 @@ export default function Page() {
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 font-mono">
-      {/* Main Content */}
       <div className="lg:col-span-8 space-y-6">
-        {/* Header */}
         <div className="flex items-center justify-between">
           <h2 className="text-xs font-bold tracking-[0.2em] text-foreground/50 uppercase">
             Credit Analytics // Terminal
@@ -100,10 +95,8 @@ export default function Page() {
           </div>
         </div>
 
-        {/* Core Metrics */}
         <div className="bg-card/20 border border-border/40 rounded-2xl p-6 backdrop-blur-sm relative overflow-hidden">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8 relative z-10">
-            {/* Liquidity */}
             <div className="space-y-4">
               <div>
                 <div className="text-[10px] text-foreground/50 uppercase tracking-widest mb-1">Available Liquidity</div>
@@ -116,7 +109,6 @@ export default function Page() {
               </div>
             </div>
 
-            {/* Utilization */}
             <div className="space-y-4">
               <div className="flex justify-between items-end">
                 <div className="text-[10px] text-foreground/50 uppercase tracking-widest">Utilization_Rate</div>
@@ -154,7 +146,6 @@ export default function Page() {
           </div>
         </div>
 
-        {/* Network Nodes */}
         <div className="bg-card/20 border border-border/40 rounded-2xl p-6 backdrop-blur-sm">
           <div className="text-[10px] text-foreground/50 uppercase tracking-widest mb-6">Network Nodes & Partners</div>
           <div className="overflow-x-auto scrollbar-hide">
@@ -189,9 +180,7 @@ export default function Page() {
         </div>
       </div>
 
-      {/* Sidebar */}
       <div className="lg:col-span-4 space-y-6">
-        {/* Quick Actions */}
         <div className="bg-card/20 border border-border/40 rounded-2xl p-6 backdrop-blur-sm space-y-4">
           <div className="text-[10px] text-foreground/50 uppercase tracking-widest mb-2">Quick Actions</div>
           <Link href="/checkout" className="block">
@@ -214,7 +203,6 @@ export default function Page() {
           </Link>
         </div>
 
-        {/* Activity Stream */}
         <div className="bg-card/20 border border-border/40 rounded-2xl p-6 backdrop-blur-sm flex flex-col h-full min-h-[400px]">
           <div className="flex items-center justify-between mb-6">
             <div className="text-[10px] text-foreground/50 uppercase tracking-widest">Activity Stream</div>
@@ -225,21 +213,21 @@ export default function Page() {
           </div>
 
           <div className="space-y-6 flex-grow">
-            {(txData?.transactions || []).length > 0 ? (
-              txData?.transactions?.slice(0, 5).map((tx: any, i: number) => (
+            {transactions.length > 0 ? (
+              transactions.slice(0, 5).map((tx: any, i: number) => (
                 <div key={i} className="flex gap-4 group cursor-pointer">
                   <div className="w-0.5 bg-primary/20 group-hover:bg-primary transition-colors" />
                   <div className="space-y-1">
                     <div className="text-[10px] font-bold tracking-wider uppercase text-foreground/90 flex items-center gap-2">
-                      TX_{tx.tx_hash?.substring(2, 8).toUpperCase()}_AUTH
+                      TX_{(tx.txHash || tx._id).substring(2, 8).toUpperCase()}_AUTH
                       {tx.category === 'repayment' && <span className="text-[8px] bg-green-500/20 text-green-400 px-1 rounded">REPAY</span>}
                     </div>
                     <div className="text-[11px] text-foreground/50">
-                      {tx.title} // -${parseFloat(tx.amount).toFixed(2)}
+                      {tx.title} // -${parseFloat(tx.amount || 0).toFixed(2)}
                     </div>
                   </div>
                   <div className="ml-auto text-[10px] text-foreground/20 whitespace-nowrap">
-                    {formatDistanceToNow(new Date(tx.created_at), { addSuffix: true }).toUpperCase()}
+                    {formatDistanceToNow(new Date(tx._creationTime), { addSuffix: true }).toUpperCase()}
                   </div>
                 </div>
               ))
